@@ -1,0 +1,11 @@
+<svg width="1200" height="600" viewBox="0 0 1200 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="600" fill="#111111"/>
+  <defs>
+    <radialGradient id="a" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(600 300) rotate(90) scale(330 650)">
+      <stop stop-color="#B56B35"/>
+      <stop offset="1" stop-color="#111111"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#a)"/>
+  <rect y="420" width="1200" height="180" fill="#000000" fill-opacity="0.35"/>
+</svg>

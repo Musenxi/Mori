@@ -1,0 +1,173 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useTheme } from "next-themes";
+
+import { cn } from "@/lib/cn";
+
+export interface NavItem {
+  href: string;
+  label: string;
+}
+
+interface SiteHeaderProps {
+  blogTitle: string;
+  navItems: NavItem[];
+  mobileArticleMode?: boolean;
+}
+
+function MenuIcon({ open }: { open: boolean }) {
+  return (
+    <span className="relative flex h-6 w-6 items-center justify-center" aria-hidden>
+      <span
+        className={cn(
+          "absolute h-[2px] w-5 rounded-full bg-primary transition-all duration-200",
+          open ? "rotate-45" : "-translate-y-[6px]",
+        )}
+      />
+      <span
+        className={cn(
+          "absolute h-[2px] w-5 rounded-full bg-primary transition-all duration-200",
+          open ? "opacity-0" : "opacity-100",
+        )}
+      />
+      <span
+        className={cn(
+          "absolute h-[2px] w-5 rounded-full bg-primary transition-all duration-200",
+          open ? "-rotate-45" : "translate-y-[6px]",
+        )}
+      />
+    </span>
+  );
+}
+
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  return (
+    <button
+      type="button"
+      aria-label="切换主题"
+      className="font-sans text-[18px] leading-none text-primary transition-opacity hover:opacity-70"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+    >
+      ◑
+    </button>
+  );
+}
+
+export function SiteHeader({ blogTitle, navItems, mobileArticleMode = false }: SiteHeaderProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  const navNode = useMemo(
+    () =>
+      navItems.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          className="font-serif-cn text-[14px] tracking-[2px] text-primary transition-opacity hover:opacity-70 md:text-[14px]"
+          onClick={() => setMobileOpen(false)}
+        >
+          {item.label}
+        </Link>
+      )),
+    [navItems],
+  );
+
+  return (
+    <>
+      <header className="hidden w-full items-center justify-between px-[60px] py-6 md:flex">
+        <Link href="/" className="font-serif-cn text-[22px] tracking-[4px] text-primary transition-opacity hover:opacity-70">
+          {blogTitle}
+        </Link>
+
+        <div className="flex items-center gap-12">
+          <nav className="flex items-center gap-8">{navNode}</nav>
+          <ThemeToggle />
+        </div>
+      </header>
+
+      <header className="relative z-30 w-full px-5 py-6 md:hidden">
+        <div className="flex items-center justify-between">
+          <Link href="/" className="font-serif-cn text-[22px] tracking-[4px] text-primary transition-opacity hover:opacity-70">
+            {blogTitle}
+          </Link>
+
+          <div className="flex items-center gap-4">
+            {mobileArticleMode ? (
+              <>
+                <button
+                  type="button"
+                  className="font-serif-cn text-[13px] tracking-[1px] text-secondary"
+                  onClick={() => window.dispatchEvent(new Event("mori:open-toc"))}
+                >
+                  展开目录
+                </button>
+                <span className="h-4 w-px bg-border" aria-hidden />
+              </>
+            ) : null}
+
+            <button
+              type="button"
+              aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
+              className="text-primary"
+              onClick={() => setMobileOpen((prev) => !prev)}
+            >
+              <MenuIcon open={mobileOpen} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-bg transition-opacity duration-200 md:hidden",
+          mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+        )}
+      >
+        <div className="px-5 py-6">
+          <div className="flex items-center justify-between">
+            <Link
+              href="/"
+              className="font-serif-cn text-[22px] tracking-[4px] text-primary"
+              onClick={() => setMobileOpen(false)}
+            >
+              {blogTitle}
+            </Link>
+
+            <button
+              type="button"
+              aria-label="关闭菜单"
+              className="text-primary"
+              onClick={() => setMobileOpen(false)}
+            >
+              <MenuIcon open />
+            </button>
+          </div>
+        </div>
+
+        <nav className="flex h-[calc(100vh-96px)] flex-col items-center justify-center gap-10 px-5">
+          {navItems.map((item) => (
+            <Link
+              key={`mobile-${item.href}`}
+              href={item.href}
+              className="font-serif-cn text-2xl tracking-[2px] text-primary"
+              onClick={() => setMobileOpen(false)}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
+    </>
+  );
+}

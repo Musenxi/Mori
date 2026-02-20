@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #ffffff;
+  --primary: #1c1c1c;
+  --secondary: #6b6b6b;
+  --muted: #9a9a9a;
+  --border: #e8e5e0;
+  --comment-border: #1c1c1c;
+  --tag: #9a9a9a1a;
+  --hover: #f5f3f0;
+  --card: #ffffff;
+}
+
+.dark {
+  --bg: #000000;
+  --primary: #e8e5e0;
+  --secondary: #8a8a9a;
+  --muted: #bcbcbc;
+  --border: #1a1a1a;
+  --comment-border: #ffffff;
+  --tag: #ffffff26;
+  --hover: #111111;
+  --card: #0a0a0a;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-tag: var(--tag);
+  --color-hover: var(--hover);
+  --color-card: var(--card);
+  --font-sans: var(--font-inter);
+  --font-serif-cn: var(--font-noto-serif-sc);
+}
+
+html,
+body {
+  min-height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--primary);
+  font-family: var(--font-inter), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.font-serif-cn {
+  font-family: var(--font-noto-serif-sc), "Songti SC", "Noto Serif SC", serif;
+}
+
+.prose-article {
+  color: var(--primary);
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.prose-article > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.prose-article p,
+.prose-article li {
+  font-size: 16px;
+  line-height: 1.85;
+  color: var(--primary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prose-article p + p,
+.prose-article p + ul,
+.prose-article p + ol,
+.prose-article p + blockquote,
+.prose-article ul + p,
+.prose-article ol + p,
+.prose-article blockquote + p,
+.prose-article h2 + p,
+.prose-article h3 + p,
+.prose-article h4 + p {
+  margin-top: 24px;
+}
+
+.prose-article h2,
+.prose-article h3,
+.prose-article h4 {
+  font-family: var(--font-noto-serif-sc), "Songti SC", serif;
+  color: var(--primary);
+  line-height: 1.5;
+  scroll-margin-top: 104px;
+}
+
+.prose-article h2 {
+  margin-top: 44px;
+  font-size: 30px;
+  letter-spacing: 2px;
+}
+
+.prose-article h3 {
+  margin-top: 30px;
+  font-size: 24px;
+  letter-spacing: 1px;
+}
+
+.prose-article h4 {
+  margin-top: 24px;
+  font-size: 20px;
+}
+
+.prose-article a {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--muted) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.prose-article blockquote {
+  margin-top: 24px;
+  border-radius: 4px;
+  background: var(--tag);
+  padding: 32px 48px;
+}
+
+.prose-article blockquote > * {
+  margin: 0;
+}
+
+.prose-article blockquote p {
+  font-family: var(--font-noto-serif-sc), "Songti SC", serif;
+  font-size: 24px;
+  line-height: 1.6;
+  color: var(--primary);
+}
+
+.prose-article pre,
+.prose-article code {
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+}
+
+.prose-article pre {
+  margin-top: 24px;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--tag) 65%, transparent);
+  padding: 16px;
+}
+
+.prose-article img {
+  margin-top: 24px;
+  display: block;
+  width: auto;
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 6px;
+}
+
+.prose-article table {
+  margin-top: 24px;
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose-article th,
+.prose-article td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.prose-comment p {
+  margin: 0;
+}
+
+.prose-comment {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prose-comment pre {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose-comment img {
+  max-width: 100%;
+  height: auto;
+}
+
+.prose-comment a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.comment-border {
+  border-color: var(--comment-border) !important;
+}
+
+@media (min-width: 768px) {
+  .prose-article p,
+  .prose-article li {
+    font-size: 18px;
+    line-height: 1.8;
+  }
+}
