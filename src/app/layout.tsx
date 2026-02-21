@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Noto_Serif_SC } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { getSettings } from "@/lib/typecho-client";
 
 import "./globals.css";
 
@@ -19,13 +20,26 @@ const notoSerifSc = Noto_Serif_SC({
   weight: ["400", "500", "700", "900"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "夜庭記",
-    template: "%s | 夜庭記",
-  },
-  description: "基于 Typecho Restful API 的极简中文博客前端。",
-};
+function normalizeMetaText(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.trim();
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  const title = normalizeMetaText(settings.title);
+  const description = normalizeMetaText(settings.description);
+
+  return {
+    title: {
+      default: title,
+      template: `%s | ${title}`,
+    },
+    description,
+  };
+}
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
