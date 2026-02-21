@@ -36,7 +36,7 @@ function parsePositiveInt(raw: string | null, fallback: number) {
 export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("slug")?.trim() ?? "";
   const cidRaw = request.nextUrl.searchParams.get("cid");
-  const cid = Number(cidRaw);
+  const cid = parsePositiveInt(cidRaw, Number.NaN);
   const page = parsePositiveInt(request.nextUrl.searchParams.get("page"), 1);
   const pageSize = parsePositiveInt(request.nextUrl.searchParams.get("pageSize"), 10);
 
