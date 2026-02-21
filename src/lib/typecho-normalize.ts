@@ -120,9 +120,8 @@ export function normalizePost(raw: TypechoPostRaw): NormalizedPost {
   const series = resolveSeries(raw);
   const commentValue = resolveCommentValue(raw);
   const html = typeof raw.text === "string" ? raw.text : undefined;
-  const digest = typeof raw.digest === "string" ? raw.digest : "";
-  const fallbackExcerpt = stripHtml(html).slice(0, 120);
-  const excerpt = stripHtml(digest || fallbackExcerpt);
+  const brief = findField(raw, ["brief"]);
+  const excerpt = stripHtml(brief);
 
   const coverField = findField(raw, [
     "banner",

@@ -10,7 +10,7 @@ interface PostCardProps {
 
 export function PostCard({ post, compact = false }: PostCardProps) {
   return (
-    <article className={cn("w-full border-b border-border py-8", compact && "py-[15px]")}>
+    <article className={cn("w-full py-8", compact && "py-[15px]")}>
       <Link href={`/post/${post.slug}`} className="group block">
         <div className="flex items-center gap-3">
           <time className="font-sans text-xs tracking-[1px] text-muted">{post.shortDate}</time>
@@ -29,14 +29,16 @@ export function PostCard({ post, compact = false }: PostCardProps) {
           {post.title}
         </h3>
 
-        <p
-          className={cn(
-            "mt-1 font-sans text-sm font-light leading-[1.9] tracking-[0.3px] text-secondary",
-            compact && "line-clamp-2",
-          )}
-        >
-          {post.excerpt}
-        </p>
+        {post.excerpt ? (
+          <p
+            className={cn(
+              "mt-1 font-sans text-sm font-light leading-[1.9] tracking-[0.3px] text-secondary",
+              compact && "line-clamp-2",
+            )}
+          >
+            {post.excerpt}
+          </p>
+        ) : null}
       </Link>
     </article>
   );

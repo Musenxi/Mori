@@ -78,9 +78,5 @@ export function ColumnCard({ column, compact = false, disableArrow = false, href
     return content;
   }
 
-  return (
-    <Link href={href} className="block border-b border-border last:border-b-0">
-      {content}
-    </Link>
-  );
+  return <Link href={href} className="block">{content}</Link>;
 }

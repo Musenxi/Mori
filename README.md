@@ -70,6 +70,7 @@ TYPECHO_API_BASE_URL="https://your-typecho-site.com/index.php/api"
 
 | 字段 key | 是否必填 | 用途 | 取值规则 |
 | --- | --- | --- | --- |
+| `brief` | 否 | 文章列表描述 | 仅用于文章列表描述展示；有值时显示该内容，无值时不显示描述。正文截断不再作为回退来源。 |
 | `series` | 否 | 专栏标识 | 值必须精确匹配 `column` 父分类下某个子分类的 `slug`；匹配时显示“所属专栏”卡片与左侧专栏列表，不匹配或为空时不显示。 |
 | `banner` | 否 | 文章头图 | 有值时作为文章头图；无值时回退为正文首图，再回退默认占位图。 |
 | `commentvalue` | 否 | 评论开关 | `0`：隐藏评论区；`2`：显示历史评论但禁止发表评论；其它值或为空：正常显示并允许评论。 |
@@ -87,11 +88,6 @@ TYPECHO_API_BASE_URL="https://your-typecho-site.com/index.php/api"
 - 图片链接（`https://...`、`/path/...`、`data:image/...`）
 - base64 svg（`base64:...`、`base64,...` 或纯 base64 字符串）
 - 原始 SVG 字符串（`<svg ...>...</svg>`）
-
-## 专栏卡片交互
-
-- 专栏列表页卡片与文章页“所属专栏”卡片均为整块可点击
-- 右侧指示符统一为 `〉`
 
 ## Header 导航规则
 
