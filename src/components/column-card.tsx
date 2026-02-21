@@ -1,6 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { cn } from "@/lib/cn";
+import { resolveColumnIcon } from "@/lib/column-icon";
 import { ColumnInfo } from "@/lib/site-data";
 
 interface ColumnCardProps {
@@ -11,6 +13,8 @@ interface ColumnCardProps {
 }
 
 export function ColumnCard({ column, compact = false, disableArrow = false, href }: ColumnCardProps) {
+  const resolvedIcon = resolveColumnIcon(column.icon);
+
   const content = (
     <article
       className={cn(
@@ -21,11 +25,27 @@ export function ColumnCard({ column, compact = false, disableArrow = false, href
     >
       <div
         className={cn(
-          "h-16 w-16 shrink-0 rounded-lg bg-muted",
+          "flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-muted",
           compact && "h-12 w-12",
         )}
         aria-hidden
-      />
+      >
+        {resolvedIcon?.type === "image" ? (
+          <Image
+            src={resolvedIcon.src}
+            alt=""
+            width={36}
+            height={36}
+            className={cn("h-9 w-9 object-contain", compact && "h-7 w-7")}
+            unoptimized
+          />
+        ) : null}
+        {resolvedIcon?.type === "text" ? (
+          <span className={cn("font-sans text-2xl leading-none text-primary", compact && "text-xl")}>
+            {resolvedIcon.text}
+          </span>
+        ) : null}
+      </div>
 
       <div className="min-w-0 flex-1">
         <h3
@@ -48,7 +68,7 @@ export function ColumnCard({ column, compact = false, disableArrow = false, href
 
       {disableArrow ? null : (
         <span className={cn("text-xl text-primary", compact && "text-lg")} aria-hidden>
-          →
+          〉
         </span>
       )}
     </article>

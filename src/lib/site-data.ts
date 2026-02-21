@@ -38,6 +38,7 @@ export interface ColumnInfo {
   name: string;
   description: string;
   count: number;
+  icon?: string;
 }
 
 const DEFAULT_COMMENT_PAGE_SIZE = 10;
@@ -51,6 +52,29 @@ function mapCategoryToColumn(category: TypechoCategory): ColumnInfo {
   };
 }
 
+function parseColumnDescription(rawDescription: unknown) {
+  const text = typeof rawDescription === "string" ? rawDescription.trim() : "";
+  if (!text) {
+    return {
+      icon: "",
+      description: "",
+    };
+  }
+
+  const pairMatch = text.match(/^\s*\[([^\]]*)\]\s*\[([\s\S]*)\]\s*$/);
+  if (!pairMatch) {
+    return {
+      icon: "",
+      description: text,
+    };
+  }
+
+  return {
+    icon: pairMatch[1]?.trim() ?? "",
+    description: pairMatch[2]?.trim() ?? "",
+  };
+}
+
 function stripAndSlice(text: string, fallback: string) {
   const compact = text.trim();
   if (compact.length > 0) {
@@ -59,32 +83,53 @@ function stripAndSlice(text: string, fallback: string) {
   return fallback;
 }
 
-function buildColumnsFromSeries(posts: NormalizedPost[]): ColumnInfo[] {
-  const map = new Map<string, ColumnInfo>();
+function getChildrenOfColumnParent(categories: TypechoCategory[], parent: TypechoCategory) {
+  const children = Array.isArray(parent.children) ? parent.children : [];
+  if (children.length > 0) {
+    return children;
+  }
 
+  const parentMid = Number(parent.mid);
+  if (!Number.isFinite(parentMid)) {
+    return [] as TypechoCategory[];
+  }
+
+  return categories.filter((item) => Number(item.parent ?? 0) === parentMid);
+}
+
+function buildColumnsFromColumnCategory(categories: TypechoCategory[], posts: NormalizedPost[]) {
+  const columnParent = categories.find((item) => String(item.slug || "").trim().toLowerCase() === "column");
+  if (!columnParent) {
+    return [] as ColumnInfo[];
+  }
+
+  const usageCount = new Map<string, number>();
   posts.forEach((post) => {
-    const slug = (post.seriesSlug || "").trim();
-    if (!slug) {
+    const key = (post.seriesSlug || "").trim();
+    if (!key) {
       return;
     }
-
-    const name = (post.seriesName || slug).trim();
-    const current = map.get(slug);
-
-    if (current) {
-      current.count += 1;
-      return;
-    }
-
-    map.set(slug, {
-      slug,
-      name,
-      description: "",
-      count: 1,
-    });
+    usageCount.set(key, (usageCount.get(key) ?? 0) + 1);
   });
 
-  return [...map.values()].sort((a, b) => {
+  const children = getChildrenOfColumnParent(categories, columnParent)
+    .filter((item) => item.slug && item.name)
+    .map((item) => {
+      const slug = String(item.slug).trim();
+      const name = String(item.name).trim() || slug;
+      const parsed = parseColumnDescription(item.description);
+      const countFromPosts = usageCount.get(slug);
+
+      return {
+        slug,
+        name,
+        description: parsed.description,
+        count: countFromPosts ?? Number(item.count ?? 0),
+        icon: parsed.icon || undefined,
+      } satisfies ColumnInfo;
+    });
+
+  return children.sort((a, b) => {
     if (a.count !== b.count) {
       return b.count - a.count;
     }
@@ -194,13 +239,13 @@ export async function getCategoryData(slug: string | null) {
 }
 
 export async function getColumnsData() {
-  const allPosts = await getAllPostsForListing();
-  return buildColumnsFromSeries(allPosts);
+  const [allPosts, categories] = await Promise.all([getAllPostsForListing(), getCategories()]);
+  return buildColumnsFromColumnCategory(categories, allPosts);
 }
 
 export async function getColumnDetailData(slug: string) {
-  const allPosts = await getAllPostsForListing();
-  const columns = buildColumnsFromSeries(allPosts);
+  const [allPosts, categories] = await Promise.all([getAllPostsForListing(), getCategories()]);
+  const columns = buildColumnsFromColumnCategory(categories, allPosts);
 
   const normalizedSlug = slug.trim();
   const matchedPosts = allPosts.filter(
@@ -237,20 +282,11 @@ function createAdjacentMap(posts: NormalizedPost[], currentCid: number) {
 
 function findColumnInfo(post: NormalizedPost, columns: ColumnInfo[]) {
   const slug = post.seriesSlug?.trim() || "";
-
-  if (slug) {
-    const bySlug = columns.find((item) => item.slug === slug);
-    if (bySlug) {
-      return bySlug;
-    }
+  if (!slug) {
+    return null;
   }
 
-  return {
-    slug: slug || "",
-    name: "未设置专栏",
-    description: "请在文章自定义字段 series 中填写专栏标识。",
-    count: 0,
-  };
+  return columns.find((item) => item.slug === slug) ?? null;
 }
 
 function getCoverImage(post: NormalizedPost) {
@@ -272,7 +308,7 @@ export async function getPostDetailData(
   const rawPost = await getPostBySlug(slug, false);
   const post = normalizePost(rawPost);
 
-  const [comments, archives] = await Promise.all([
+  const [comments, archives, categories] = await Promise.all([
     post.commentValue === 0
       ? Promise.resolve<TypechoCommentsResponse>({
         page: commentPage,
@@ -289,12 +325,13 @@ export async function getPostDetailData(
         revalidate: false,
       }),
     getArchives({ showDigest: "excerpt", limit: 92, showContent: true, order: "desc", revalidate: false }),
+    getCategories(),
   ]);
 
   const article = prepareArticleContent(post.html);
   const allPosts = flattenArchives(archives);
   const adjacent = createAdjacentMap(allPosts, post.cid);
-  const columns = buildColumnsFromSeries(allPosts);
+  const columns = buildColumnsFromColumnCategory(categories, allPosts);
 
   const rawFields = rawPost.fields ?? {};
   const readCount =
