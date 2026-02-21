@@ -16,6 +16,7 @@ import {
   normalizePost,
   normalizePosts,
   prepareArticleContent,
+  stripHtml,
 } from "./typecho-normalize";
 import {
   CommentPagination,
@@ -326,6 +327,11 @@ function buildColumnArticles(posts: NormalizedPost[], currentCid: number) {
   return posts.filter((item) => item.cid !== currentCid).slice(0, 5);
 }
 
+function countArticleCharacters(html: string) {
+  const plainText = stripHtml(html);
+  return plainText.replace(/\s+/g, "").length;
+}
+
 export async function getPostDetailData(
   slug: string,
   commentPage = 1,
@@ -365,6 +371,7 @@ export async function getPostDetailData(
     (typeof rawFields.readCount?.value === "string" && rawFields.readCount.value.trim()) || "--";
   const likeCount =
     (typeof rawFields.likeCount?.value === "string" && rawFields.likeCount.value.trim()) || "--";
+  const wordCount = countArticleCharacters(article.html);
 
   const seriesSlug = (post.seriesSlug || "").trim();
   const sameColumnPosts = seriesSlug
@@ -381,6 +388,7 @@ export async function getPostDetailData(
     },
     readCount,
     likeCount,
+    wordCount,
     comments: limitCommentDepth(normalizeCommentTree(comments.dataSet), 2),
     commentsPagination: {
       page: comments.page,

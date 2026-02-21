@@ -55,7 +55,12 @@ export default async function PostPage({ params, searchParams }: PostPageProps) 
     <Shell context={context} navItems={navItems} mobileArticleMode>
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0">
         <section className="flex flex-col gap-8 py-6 md:gap-10 md:py-[100px]">
-          <PostHero post={detail.post} readCount={detail.readCount} likeCount={detail.likeCount} />
+          <PostHero
+            post={detail.post}
+            readCount={detail.readCount}
+            likeCount={detail.likeCount}
+            wordCount={detail.wordCount}
+          />
 
           <section className="min-[1280px]:mx-auto min-[1280px]:grid min-[1280px]:max-w-[1440px] min-[1280px]:grid-cols-[180px_minmax(0,1fr)_180px] min-[1280px]:gap-x-8 min-[1440px]:grid-cols-[180px_850px_200px] min-[1440px]:gap-x-[95px]">
             <aside className="hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block min-[1280px]:w-[180px] min-[1280px]:max-h-[calc(100vh-7rem)] min-[1280px]:self-start min-[1280px]:justify-self-end min-[1280px]:overflow-y-auto min-[1280px]:pr-1">

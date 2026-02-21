@@ -6,9 +6,10 @@ interface PostHeroProps {
   post: NormalizedPost & { coverImage?: string };
   readCount: string;
   likeCount: string;
+  wordCount: number;
 }
 
-export function PostHero({ post, readCount, likeCount }: PostHeroProps) {
+export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProps) {
   const src = post.coverImage || "/images/post-placeholder.svg";
 
   return (
@@ -20,6 +21,7 @@ export function PostHero({ post, readCount, likeCount }: PostHeroProps) {
       <div className="flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-[15px] gap-y-2 font-sans text-sm tracking-[0.5px] text-muted">
         <time>{post.createdLabel}</time>
         <span>{post.categoryName}</span>
+        <span>{wordCount}字</span>
         <span>{readCount}</span>
         <span>{likeCount}</span>
       </div>
