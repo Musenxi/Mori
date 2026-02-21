@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { CommentForm, ReplyTarget } from "@/components/article/comment-form";
 import { CommentList } from "@/components/article/comment-list";
@@ -40,13 +39,73 @@ export function CommentSection({
   pageQueryKey = "cpage",
 }: CommentSectionProps) {
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
+  const [currentComments, setCurrentComments] = useState(comments);
+  const [currentPagination, setCurrentPagination] = useState<CommentPagination | undefined>(pagination);
+  const [loadingPage, setLoadingPage] = useState(false);
+  const [feedback, setFeedback] = useState("");
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  function buildPageHref(page: number) {
+  const pageSize = useMemo(() => currentPagination?.pageSize || pagination?.pageSize || 10, [currentPagination, pagination]);
+
+  useEffect(() => {
+    setCurrentComments(comments);
+    setCurrentPagination(pagination);
+    setReplyTarget(null);
+    setFeedback("");
+  }, [slug, comments, pagination]);
+
+  function buildPageUrl(page: number) {
     const params = new URLSearchParams(searchParams.toString());
     params.set(pageQueryKey, String(page));
     return `${pathname}?${params.toString()}#comment-section`;
+  }
+
+  async function refreshComments(
+    page: number,
+    options?: { preserveExistingOnEmpty?: boolean },
+  ): Promise<{ ok: boolean; commentCount: number }> {
+    if (loadingPage) {
+      return { ok: false, commentCount: currentComments.length };
+    }
+
+    setLoadingPage(true);
+    setFeedback("");
+
+    try {
+      const response = await fetch(
+        `/api/comments?slug=${encodeURIComponent(slug)}&page=${page}&pageSize=${pageSize}&_t=${Date.now()}`,
+        { method: "GET", cache: "no-store" },
+      );
+
+      const result = (await response.json()) as {
+        ok: boolean;
+        message?: string;
+        data?: {
+          comments: NormalizedComment[];
+          pagination: CommentPagination;
+        };
+      };
+
+      if (!response.ok || !result.ok || !result.data) {
+        throw new Error(result.message || "评论加载失败，请稍后重试。");
+      }
+
+      const nextCommentCount = result.data.comments.length;
+      if (options?.preserveExistingOnEmpty && result.data.comments.length === 0) {
+        setCurrentComments((prev) => (prev.length > 0 ? prev : result.data.comments));
+      } else {
+        setCurrentComments(result.data.comments);
+      }
+      setCurrentPagination(result.data.pagination);
+      window.history.replaceState(null, "", buildPageUrl(result.data.pagination.page));
+      return { ok: true, commentCount: nextCommentCount };
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "评论加载失败，请稍后重试。");
+      return { ok: false, commentCount: currentComments.length };
+    } finally {
+      setLoadingPage(false);
+    }
   }
 
   function handleReply(target: ReplyTarget) {
@@ -66,11 +125,16 @@ export function CommentSection({
       ) : null}
 
       {!disableForm && !replyTarget ? (
-        <CommentForm slug={slug} onSubmitted={() => setReplyTarget(null)} />
+        <CommentForm
+          slug={slug}
+          onSubmitted={() => {
+            setReplyTarget(null);
+          }}
+        />
       ) : null}
 
       <CommentList
-        comments={comments}
+        comments={currentComments}
         onReply={disableForm ? undefined : handleReply}
         canReply={!disableForm}
         activeReplyCoid={replyTarget?.coid}
@@ -80,46 +144,57 @@ export function CommentSection({
               slug={slug}
               replyTarget={replyTarget}
               onCancelReply={() => setReplyTarget(null)}
-              onSubmitted={() => setReplyTarget(null)}
+              onSubmitted={() => {
+                setReplyTarget(null);
+              }}
             />
           ) : null
         }
       />
 
-      {pagination && pagination.pages > 1 ? (
+      {feedback ? <p className="mt-4 text-center font-sans text-sm text-secondary">{feedback}</p> : null}
+
+      {currentPagination && currentPagination.pages > 1 ? (
         <nav className="mt-8 flex items-center justify-center gap-2" aria-label="评论分页">
-          <Link
-            href={buildPageHref(Math.max(1, pagination.page - 1))}
+          <button
+            type="button"
+            onClick={() => void refreshComments(Math.max(1, currentPagination.page - 1))}
             className={cn(
               "comment-border rounded-full border px-3 py-1 text-sm text-secondary transition-colors",
-              pagination.page <= 1 && "pointer-events-none opacity-40",
+              (loadingPage || currentPagination.page <= 1) && "pointer-events-none opacity-40",
             )}
+            disabled={loadingPage || currentPagination.page <= 1}
           >
             上一页
-          </Link>
+          </button>
 
-          {buildPageList(pagination.page, pagination.pages).map((page) => (
-            <Link
+          {buildPageList(currentPagination.page, currentPagination.pages).map((page) => (
+            <button
+              type="button"
               key={page}
-              href={buildPageHref(page)}
+              onClick={() => void refreshComments(page)}
               className={cn(
                 "comment-border min-w-8 rounded-full border px-2 py-1 text-center text-sm transition-colors",
-                page === pagination.page ? "bg-primary text-bg" : "text-secondary hover:bg-hover",
+                page === currentPagination.page ? "bg-primary text-bg" : "text-secondary hover:bg-hover",
+                loadingPage && "pointer-events-none opacity-60",
               )}
+              disabled={loadingPage || page === currentPagination.page}
             >
               {page}
-            </Link>
+            </button>
           ))}
 
-          <Link
-            href={buildPageHref(Math.min(pagination.pages, pagination.page + 1))}
+          <button
+            type="button"
+            onClick={() => void refreshComments(Math.min(currentPagination.pages, currentPagination.page + 1))}
             className={cn(
               "comment-border rounded-full border px-3 py-1 text-sm text-secondary transition-colors",
-              pagination.page >= pagination.pages && "pointer-events-none opacity-40",
+              (loadingPage || currentPagination.page >= currentPagination.pages) && "pointer-events-none opacity-40",
             )}
+            disabled={loadingPage || currentPagination.page >= currentPagination.pages}
           >
             下一页
-          </Link>
+          </button>
         </nav>
       ) : null}
     </section>

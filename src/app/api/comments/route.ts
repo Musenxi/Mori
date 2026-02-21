@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createComment, TypechoClientError } from "@/lib/typecho-client";
+import { createComment, getComments, TypechoClientError } from "@/lib/typecho-client";
+import { limitCommentDepth, normalizeCommentTree } from "@/lib/typecho-normalize";
 
 interface CommentBody {
   slug?: string;
@@ -18,8 +19,77 @@ function badRequest(message: string) {
       ok: false,
       message,
     },
-    { status: 400 },
+    {
+      status: 400,
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    },
   );
+}
+
+function parsePositiveInt(raw: string | null, fallback: number) {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export async function GET(request: NextRequest) {
+  const slug = request.nextUrl.searchParams.get("slug")?.trim() ?? "";
+  const cidRaw = request.nextUrl.searchParams.get("cid");
+  const cid = Number(cidRaw);
+  const page = parsePositiveInt(request.nextUrl.searchParams.get("page"), 1);
+  const pageSize = parsePositiveInt(request.nextUrl.searchParams.get("pageSize"), 10);
+
+  if (!slug && !Number.isFinite(cid)) {
+    return badRequest("缺少文章 slug 或 cid。");
+  }
+
+  try {
+    const response = await getComments({
+      slug: slug || undefined,
+      cid: Number.isFinite(cid) ? cid : undefined,
+      page,
+      pageSize,
+      order: "desc",
+      revalidate: false,
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        data: {
+          comments: limitCommentDepth(normalizeCommentTree(response.dataSet), 2),
+          pagination: {
+            page: response.page,
+            pageSize: response.pageSize,
+            pages: response.pages,
+            count: response.count,
+          },
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      },
+    );
+  } catch (error) {
+    const message = error instanceof TypechoClientError ? error.message : "评论加载失败，请稍后重试。";
+    const status = error instanceof TypechoClientError && error.statusCode ? error.statusCode : 500;
+
+    return NextResponse.json(
+      {
+        ok: false,
+        message,
+      },
+      {
+        status,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      },
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -72,10 +142,17 @@ export async function POST(request: NextRequest) {
       request.headers.get("user-agent") ?? "Mori-Frontend/1.0",
     );
 
-    return NextResponse.json({
-      ok: true,
-      data: result,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        data: result,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      },
+    );
   } catch (error) {
     const message = error instanceof TypechoClientError ? error.message : "评论提交失败，请稍后重试。";
     const status = error instanceof TypechoClientError && error.statusCode ? error.statusCode : 500;
@@ -85,7 +162,12 @@ export async function POST(request: NextRequest) {
         ok: false,
         message,
       },
-      { status },
+      {
+        status,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      },
     );
   }
 }

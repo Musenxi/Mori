@@ -12,7 +12,7 @@ interface CommentFormProps {
   slug: string;
   replyTarget?: ReplyTarget | null;
   onCancelReply?: () => void;
-  onSubmitted?: () => void;
+  onSubmitted?: () => void | Promise<void>;
 }
 
 interface FormState {
@@ -84,7 +84,7 @@ export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitt
 
       setFeedback("评论已提交，感谢你的分享。若开启审核，管理员通过后会展示。");
       setForm(INITIAL_FORM);
-      onSubmitted?.();
+      await onSubmitted?.();
       router.refresh();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "评论提交失败，请稍后重试。");
