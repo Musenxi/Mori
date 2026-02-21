@@ -50,8 +50,13 @@ TYPECHO_API_BASE_URL="https://your-typecho-site.com/index.php/api"
 
 - `https://gravatar.com/avatar/`（自动追加 hash）
 - `https://cravatar.cn/avatar/`（自动追加 hash）
-- `https://gravatar.com/avatar/{hash}?d=identicon&s=80`（显式占位）
-- `https://gravatar.com/avatar/%s?d=identicon&s=80`（`%s` 占位）
+- `https://gravatar.com/avatar/{hash}?d=mp&s=80`（显式占位）
+- `https://gravatar.com/avatar/%s?d=mp&s=80`（`%s` 占位）
+
+说明：
+
+- 未显式传 `d=` 参数时，系统会自动追加 `d=404`，用于在没有头像时回退为首字母。
+- 如果希望展示 Gravatar 默认头像，请显式传 `d=identicon`/`d=mp` 等参数。
 
 ## Typecho Restful 插件要求
 

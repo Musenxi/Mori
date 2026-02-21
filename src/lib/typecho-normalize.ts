@@ -29,15 +29,14 @@ function buildGravatarUrl(mailHash?: string) {
   }
 
   if (prefix.includes("{hash}")) {
-    return prefix.replace("{hash}", hash);
+    return appendGravatarDefault(prefix.replace("{hash}", hash));
   }
 
   if (prefix.includes("%s")) {
-    return prefix.replace("%s", hash);
+    return appendGravatarDefault(prefix.replace("%s", hash));
   }
 
-  const separator = prefix.endsWith("/") || prefix.endsWith("=") ? "" : "/";
-  return `${prefix}${separator}${hash}`;
+  return appendGravatarDefault(injectHash(prefix, hash));
 }
 
 export function formatFullDate(tsSeconds: number) {
@@ -73,6 +72,29 @@ function findField(raw: TypechoPostRaw, keys: string[]) {
     }
   }
   return "";
+}
+
+function appendGravatarDefault(url: string) {
+  if (/[?&]d=/.test(url)) {
+    return url;
+  }
+
+  const needsJoiner = !(url.endsWith("?") || url.endsWith("&"));
+  const joiner = url.includes("?") ? "&" : "?";
+  return `${url}${needsJoiner ? joiner : ""}d=404`;
+}
+
+function injectHash(prefix: string, hash: string) {
+  const splitIndex = prefix.search(/[?#]/);
+  if (splitIndex === -1) {
+    const separator = prefix.endsWith("/") || prefix.endsWith("=") ? "" : "/";
+    return `${prefix}${separator}${hash}`;
+  }
+
+  const base = prefix.slice(0, splitIndex);
+  const suffix = prefix.slice(splitIndex);
+  const separator = base.endsWith("/") || base.endsWith("=") ? "" : "/";
+  return `${base}${separator}${hash}${suffix}`;
 }
 
 function extractCoverFromHtml(html?: string) {
