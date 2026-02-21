@@ -12,7 +12,7 @@ export default async function HomePage() {
   return (
     <Shell context={context} navItems={navItems}>
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
-        <section className="mori-stagger-item px-0 py-8 md:px-[80px] md:py-[50px] md:pl-[400px]">
+        <section className="mori-stagger-item px-0 py-8 md:px-[80px] md:py-[50px] md:pl-[300px]">
           {home.groups.length > 0 ? (
             <YearPostGroups groups={home.groups} staggered />
           ) : (

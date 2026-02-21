@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { ColumnInfoCard } from "@/components/column-info-card";
@@ -69,25 +70,39 @@ export function ColumnDetailClient({
 
   return (
     <section className="flex flex-col gap-8 md:gap-[60px]">
-      {columns.length > 1 ? (
-        <nav className="mori-stagger-item flex flex-wrap gap-3" aria-label="专栏切换">
-          {columns.map((item) => (
-            <button
-              key={item.slug}
-              type="button"
-              onClick={() => void handleSwitch(item.slug)}
-              disabled={loading}
-              className={cn(
-                "inline-flex items-center rounded-full px-4 py-1.5 font-sans text-sm transition-colors",
-                item.slug === activeSlug ? "bg-primary text-bg" : "bg-tag text-secondary hover:bg-hover",
-                loading && "cursor-not-allowed opacity-60",
-              )}
-            >
-              {item.name}
-            </button>
-          ))}
-        </nav>
-      ) : null}
+      <header className="mori-stagger-item flex flex-col gap-8 md:gap-14">
+        <div className="flex items-center gap-5 md:gap-8">
+          <h1 className="font-serif-cn text-[32px] font-bold leading-[1.4] tracking-[4px] text-primary md:text-[36px] md:tracking-[6px]">
+            专栏
+          </h1>
+          <Link
+            href="/category"
+            className="font-serif-cn text-lg text-muted transition-opacity hover:opacity-70 md:text-xl"
+          >
+            分类
+          </Link>
+        </div>
+
+        {columns.length > 1 ? (
+          <nav className="flex flex-wrap gap-3" aria-label="专栏切换">
+            {columns.map((item) => (
+              <button
+                key={item.slug}
+                type="button"
+                onClick={() => void handleSwitch(item.slug)}
+                disabled={loading}
+                className={cn(
+                  "inline-flex items-center rounded-full px-4 py-1.5 font-sans text-sm transition-colors",
+                  item.slug === activeSlug ? "bg-primary text-bg" : "bg-tag text-secondary hover:bg-hover",
+                  loading && "cursor-not-allowed opacity-60",
+                )}
+              >
+                {item.name}
+              </button>
+            ))}
+          </nav>
+        ) : null}
+      </header>
 
       {error ? <p className="font-sans text-sm leading-8 text-secondary">{error}</p> : null}
       {loading ? <p className="font-sans text-sm leading-8 text-secondary">加载中...</p> : null}

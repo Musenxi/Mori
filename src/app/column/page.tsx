@@ -16,7 +16,7 @@ export default async function ColumnPage() {
   return (
     <Shell context={context} navItems={navItems}>
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
-        <section className="flex flex-col gap-8 py-10 md:gap-[60px] md:px-[80px] md:py-[80px] md:pl-[400px]">
+        <section className="flex flex-col gap-8 py-10 md:gap-[60px] md:px-[80px] md:py-[80px] md:pl-[300px]">
           <header className="mori-stagger-item flex items-center gap-5 md:gap-8">
             <h1 className="font-serif-cn text-[32px] font-bold leading-[1.4] tracking-[4px] text-primary md:text-[36px] md:tracking-[6px]">
               专栏

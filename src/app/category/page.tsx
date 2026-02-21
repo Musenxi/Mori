@@ -25,7 +25,7 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
   return (
     <Shell context={context} navItems={navItems}>
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
-        <section className="flex flex-col gap-12 py-10 md:gap-[60px] md:px-[80px] md:py-[80px] md:pl-[400px]">
+        <section className="flex flex-col gap-12 py-10 md:gap-[60px] md:px-[80px] md:py-[80px] md:pl-[300px]">
           <CategoryPageClient
             initialCategories={data.categories}
             initialGroups={data.groups}
