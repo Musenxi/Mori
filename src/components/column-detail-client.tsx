@@ -72,9 +72,12 @@ export function ColumnDetailClient({
     <section className="flex flex-col gap-8 md:gap-[60px]">
       <header className="mori-stagger-item flex flex-col gap-8 md:gap-14">
         <div className="flex items-center gap-5 md:gap-8">
-          <h1 className="font-serif-cn text-[32px] font-bold leading-[1.4] tracking-[4px] text-primary md:text-[36px] md:tracking-[6px]">
+          <Link
+            href="/column"
+            className="font-serif-cn text-[32px] font-bold leading-[1.4] tracking-[4px] text-primary transition-opacity hover:opacity-70 md:text-[36px] md:tracking-[6px]"
+          >
             专栏
-          </h1>
+          </Link>
           <Link
             href="/category"
             className="font-serif-cn text-lg text-muted transition-opacity hover:opacity-70 md:text-xl"
