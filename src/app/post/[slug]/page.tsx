@@ -56,45 +56,39 @@ export default async function PostPage({ params, searchParams }: PostPageProps) 
         <section className="flex flex-col gap-8 py-6 md:gap-10 md:py-[100px]">
           <PostHero post={detail.post} readCount={detail.readCount} likeCount={detail.likeCount} />
 
-          <section className="min-[1440px]:mx-auto min-[1440px]:grid min-[1440px]:max-w-[1440px] min-[1440px]:grid-cols-[200px_850px_200px] min-[1440px]:gap-x-[95px]">
-            <aside className="hidden min-[1440px]:block">
-              <div className="sticky top-24">
-                <ColumnDirectory
-                  column={detail.column}
-                  currentSlug={detail.post.slug}
-                  articles={detail.columnArticles}
-                />
-              </div>
-            </aside>
-
-            <div className="mx-auto w-full max-w-[850px]">
-              <PostBody post={detail.post} />
-            </div>
-
-            <aside className="hidden min-[1440px]:block">
-              <div className="sticky top-24">
-                <TableOfContents items={tocItems} />
-              </div>
-            </aside>
-          </section>
-
-          <section className="mx-auto w-full max-w-[850px] min-[1440px]:ml-[295px]">
-            <div className="flex flex-col gap-5 md:gap-6">
-              <ColumnInfoCard column={detail.column} />
-              <PostNavigation prev={detail.adjacent.prev} next={detail.adjacent.next} />
-            </div>
-          </section>
-
-          {detail.post.commentValue !== 0 ? (
-            <section className="mx-auto w-full max-w-[850px] min-[1440px]:ml-[295px]">
-              <CommentSection
-                slug={detail.post.slug}
-                comments={detail.comments}
-                disableForm={detail.post.commentValue === 2}
-                pagination={detail.commentsPagination}
+          <section className="min-[1280px]:mx-auto min-[1280px]:grid min-[1280px]:max-w-[1440px] min-[1280px]:grid-cols-[180px_minmax(0,1fr)_180px] min-[1280px]:gap-x-8 min-[1440px]:grid-cols-[200px_850px_200px] min-[1440px]:gap-x-[95px]">
+            <aside className="hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block min-[1280px]:max-h-[calc(100vh-7rem)] min-[1280px]:self-start min-[1280px]:overflow-y-auto min-[1280px]:pr-1">
+              <ColumnDirectory
+                column={detail.column}
+                currentSlug={detail.post.slug}
+                articles={detail.columnArticles}
               />
-            </section>
-          ) : null}
+            </aside>
+
+            <div className="mx-auto w-full max-w-[850px] flex flex-col gap-8">
+              <PostBody post={detail.post} />
+
+              <section className="flex flex-col gap-5 md:gap-6">
+                <ColumnInfoCard column={detail.column} />
+                <PostNavigation prev={detail.adjacent.prev} next={detail.adjacent.next} />
+              </section>
+
+              {detail.post.commentValue !== 0 ? (
+                <section>
+                  <CommentSection
+                    slug={detail.post.slug}
+                    comments={detail.comments}
+                    disableForm={detail.post.commentValue === 2}
+                    pagination={detail.commentsPagination}
+                  />
+                </section>
+              ) : null}
+            </div>
+
+            <aside className="hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block min-[1280px]:max-h-[calc(100vh-7rem)] min-[1280px]:self-start min-[1280px]:overflow-y-auto min-[1280px]:pr-1">
+              <TableOfContents items={tocItems} />
+            </aside>
+          </section>
         </section>
       </main>
 

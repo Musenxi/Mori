@@ -41,13 +41,13 @@ html,
 body {
   min-height: 100%;
   width: 100%;
-  overflow-x: hidden;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--primary);
+  overflow-x: clip;
   font-family: var(--font-inter), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 
