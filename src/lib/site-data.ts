@@ -63,7 +63,7 @@ function buildColumnsFromSeries(posts: NormalizedPost[]): ColumnInfo[] {
   const map = new Map<string, ColumnInfo>();
 
   posts.forEach((post) => {
-    const slug = (post.seriesSlug || post.seriesName || "").trim();
+    const slug = (post.seriesSlug || "").trim();
     if (!slug) {
       return;
     }
@@ -204,7 +204,7 @@ export async function getColumnDetailData(slug: string) {
 
   const normalizedSlug = slug.trim();
   const matchedPosts = allPosts.filter(
-    (post) => (post.seriesSlug || post.seriesName || "").trim() === normalizedSlug,
+    (post) => (post.seriesSlug || "").trim() === normalizedSlug,
   );
 
   const column = columns.find((item) => item.slug === normalizedSlug) ?? {
@@ -237,7 +237,6 @@ function createAdjacentMap(posts: NormalizedPost[], currentCid: number) {
 
 function findColumnInfo(post: NormalizedPost, columns: ColumnInfo[]) {
   const slug = post.seriesSlug?.trim() || "";
-  const name = post.seriesName?.trim() || "";
 
   if (slug) {
     const bySlug = columns.find((item) => item.slug === slug);
@@ -246,17 +245,10 @@ function findColumnInfo(post: NormalizedPost, columns: ColumnInfo[]) {
     }
   }
 
-  if (name) {
-    const byName = columns.find((item) => item.name === name);
-    if (byName) {
-      return byName;
-    }
-  }
-
   return {
-    slug: slug || name || "",
-    name: name || "未设置专栏",
-    description: name ? "" : "请在文章自定义字段 series 中填写专栏标识。",
+    slug: slug || "",
+    name: "未设置专栏",
+    description: "请在文章自定义字段 series 中填写专栏标识。",
     count: 0,
   };
 }
@@ -310,9 +302,9 @@ export async function getPostDetailData(
   const likeCount =
     (typeof rawFields.likeCount?.value === "string" && rawFields.likeCount.value.trim()) || "--";
 
-  const seriesSlug = (post.seriesSlug || post.seriesName || "").trim();
+  const seriesSlug = (post.seriesSlug || "").trim();
   const sameColumnPosts = seriesSlug
-    ? allPosts.filter((item) => (item.seriesSlug || item.seriesName || "").trim() === seriesSlug)
+    ? allPosts.filter((item) => (item.seriesSlug || "").trim() === seriesSlug)
     : [];
 
   const column = findColumnInfo(post, columns);

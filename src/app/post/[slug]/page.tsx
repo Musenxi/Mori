@@ -49,6 +49,7 @@ export default async function PostPage({ params, searchParams }: PostPageProps) 
   }
 
   const tocItems = detail.tocItems.length > 0 ? detail.tocItems : buildTocFallback(detail.post.title);
+  const hasColumnAssociation = Boolean((detail.post.seriesSlug || "").trim());
 
   return (
     <Shell context={context} navItems={navItems} mobileArticleMode>
@@ -57,19 +58,23 @@ export default async function PostPage({ params, searchParams }: PostPageProps) 
           <PostHero post={detail.post} readCount={detail.readCount} likeCount={detail.likeCount} />
 
           <section className="min-[1280px]:mx-auto min-[1280px]:grid min-[1280px]:max-w-[1440px] min-[1280px]:grid-cols-[180px_minmax(0,1fr)_180px] min-[1280px]:gap-x-8 min-[1440px]:grid-cols-[200px_850px_200px] min-[1440px]:gap-x-[95px]">
-            <aside className="hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block min-[1280px]:max-h-[calc(100vh-7rem)] min-[1280px]:self-start min-[1280px]:overflow-y-auto min-[1280px]:pr-1">
-              <ColumnDirectory
-                column={detail.column}
-                currentSlug={detail.post.slug}
-                articles={detail.columnArticles}
-              />
-            </aside>
+            {hasColumnAssociation ? (
+              <aside className="hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block min-[1280px]:max-h-[calc(100vh-7rem)] min-[1280px]:self-start min-[1280px]:overflow-y-auto min-[1280px]:pr-1">
+                <ColumnDirectory
+                  column={detail.column}
+                  currentSlug={detail.post.slug}
+                  articles={detail.columnArticles}
+                />
+              </aside>
+            ) : (
+              <div className="hidden min-[1280px]:block" aria-hidden />
+            )}
 
             <div className="mx-auto w-full max-w-[850px] flex flex-col gap-8">
               <PostBody post={detail.post} />
 
               <section className="flex flex-col gap-5 md:gap-6">
-                <ColumnInfoCard column={detail.column} />
+                {hasColumnAssociation ? <ColumnInfoCard column={detail.column} /> : null}
                 <PostNavigation prev={detail.adjacent.prev} next={detail.adjacent.next} />
               </section>
 
