@@ -24,6 +24,7 @@ export function ColumnDetailClient({
   const [activeSlug, setActiveSlug] = useState(initialSlug);
   const [column, setColumn] = useState(initialColumn);
   const [groups, setGroups] = useState(initialGroups);
+  const [animationToken, setAnimationToken] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -57,6 +58,7 @@ export function ColumnDetailClient({
       setActiveSlug(nextSlug);
       setColumn(result.data.column);
       setGroups(result.data.groups);
+      setAnimationToken((value) => value + 1);
       window.history.replaceState(null, "", `/column/${encodeURIComponent(nextSlug)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "专栏数据加载失败。");
@@ -68,7 +70,7 @@ export function ColumnDetailClient({
   return (
     <section className="flex flex-col gap-8 md:gap-[60px]">
       {columns.length > 1 ? (
-        <nav className="flex flex-wrap gap-3" aria-label="专栏切换">
+        <nav className="mori-stagger-item flex flex-wrap gap-3" aria-label="专栏切换">
           {columns.map((item) => (
             <button
               key={item.slug}
@@ -90,14 +92,18 @@ export function ColumnDetailClient({
       {error ? <p className="font-sans text-sm leading-8 text-secondary">{error}</p> : null}
       {loading ? <p className="font-sans text-sm leading-8 text-secondary">加载中...</p> : null}
 
-      <ColumnInfoCard column={column} hideAction />
-      <div className="h-px w-full bg-border" />
+      <div className="mori-stagger-item" style={{ animationDelay: "80ms" }}>
+        <ColumnInfoCard column={column} hideAction />
+      </div>
+      <div className="mori-stagger-item h-px w-full bg-border" style={{ animationDelay: "120ms" }} />
 
       {!loading ? (
         groups.length > 0 ? (
-          <YearPostGroups groups={groups} />
+          <YearPostGroups groups={groups} staggered animationToken={animationToken} />
         ) : (
-          <p className="font-sans text-sm leading-8 text-secondary">该专栏暂无文章。</p>
+          <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "150ms" }}>
+            该专栏暂无文章。
+          </p>
         )
       ) : null}
     </section>

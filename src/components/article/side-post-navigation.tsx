@@ -7,11 +7,31 @@ interface SidePostNavigationProps {
   posts: NormalizedPost[];
   currentCid: number;
   className?: string;
+  staggered?: boolean;
+  staggerStartMs?: number;
+  staggerStepMs?: number;
 }
 
-function SideNavItem({ post, active }: { post: NormalizedPost; active: boolean }) {
+function SideNavItem({
+  post,
+  active,
+  animationDelayMs,
+}: {
+  post: NormalizedPost;
+  active: boolean;
+  animationDelayMs?: number;
+}) {
   return (
-    <li className="flex items-center">
+    <li
+      className={cn("flex items-center", typeof animationDelayMs === "number" && "mori-stagger-item")}
+      style={
+        typeof animationDelayMs === "number"
+          ? {
+              animationDelay: `${animationDelayMs}ms`,
+            }
+          : undefined
+      }
+    >
       <Link
         href={`/post/${post.slug}`}
         aria-current={active ? "page" : undefined}
@@ -29,15 +49,27 @@ function SideNavItem({ post, active }: { post: NormalizedPost; active: boolean }
   );
 }
 
-export function SidePostNavigation({ posts, currentCid, className }: SidePostNavigationProps) {
+export function SidePostNavigation({
+  posts,
+  currentCid,
+  className,
+  staggered = false,
+  staggerStartMs = 0,
+  staggerStepMs = 44,
+}: SidePostNavigationProps) {
   if (posts.length === 0) {
     return null;
   }
 
   return (
     <ul className={cn("w-full space-y-1", className)} aria-label="文章导航">
-      {posts.map((post) => (
-        <SideNavItem key={post.cid} post={post} active={post.cid === currentCid} />
+      {posts.map((post, index) => (
+        <SideNavItem
+          key={post.cid}
+          post={post}
+          active={post.cid === currentCid}
+          animationDelayMs={staggered ? staggerStartMs + index * staggerStepMs : undefined}
+        />
       ))}
     </ul>
   );

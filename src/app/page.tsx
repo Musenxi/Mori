@@ -12,9 +12,9 @@ export default async function HomePage() {
   return (
     <Shell context={context} navItems={navItems}>
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
-        <section className="px-0 py-8 md:px-[80px] md:py-[50px] md:pl-[400px]">
+        <section className="mori-stagger-item px-0 py-8 md:px-[80px] md:py-[50px] md:pl-[400px]">
           {home.groups.length > 0 ? (
-            <YearPostGroups groups={home.groups} />
+            <YearPostGroups groups={home.groups} staggered />
           ) : (
             <p className="font-sans text-sm leading-8 text-secondary">暂无文章，请先在 Typecho 后台发布内容。</p>
           )}

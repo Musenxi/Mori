@@ -22,6 +22,7 @@ export function CategoryPageClient({
   const [categories, setCategories] = useState(initialCategories);
   const [groups, setGroups] = useState(initialGroups);
   const [activeSlug, setActiveSlug] = useState<string | null>(initialActiveSlug);
+  const [animationToken, setAnimationToken] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -56,6 +57,7 @@ export function CategoryPageClient({
       setActiveSlug(nextSlug);
       setCategories(result.data.categories);
       setGroups(result.data.groups);
+      setAnimationToken((value) => value + 1);
 
       const nextUrl = nextSlug ? `/category?slug=${encodeURIComponent(nextSlug)}` : "/category";
       window.history.replaceState(null, "", nextUrl);
@@ -68,7 +70,7 @@ export function CategoryPageClient({
 
   return (
     <>
-      <header className="flex flex-col gap-8 md:gap-14">
+      <header className="mori-stagger-item flex flex-col gap-8 md:gap-14">
         <div className="flex items-center gap-5 md:gap-8">
           <h1 className="font-serif-cn text-[32px] font-bold leading-[1.4] tracking-[4px] text-primary md:text-[36px] md:tracking-[6px]">
             分类
@@ -89,14 +91,24 @@ export function CategoryPageClient({
         />
       </header>
 
-      {error ? <p className="font-sans text-sm leading-8 text-secondary">{error}</p> : null}
-      {loading ? <p className="font-sans text-sm leading-8 text-secondary">加载中...</p> : null}
+      {error ? (
+        <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "80ms" }}>
+          {error}
+        </p>
+      ) : null}
+      {loading ? (
+        <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "80ms" }}>
+          加载中...
+        </p>
+      ) : null}
 
       {!loading ? (
         groups.length > 0 ? (
-          <YearPostGroups groups={groups} />
+          <YearPostGroups groups={groups} staggered animationToken={animationToken} />
         ) : (
-          <p className="font-sans text-sm leading-8 text-secondary">该分类暂无文章。</p>
+          <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "110ms" }}>
+            该分类暂无文章。
+          </p>
         )
       ) : null}
     </>

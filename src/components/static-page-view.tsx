@@ -24,20 +24,26 @@ export function StaticPageView({
     <Shell context={context} navItems={navItems}>
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0">
         <section className="mx-auto max-w-[850px] py-10 md:py-[100px]">
-          <h1 className="font-serif-cn text-[32px] leading-[1.4] tracking-[4px] text-primary md:text-[42px]">
+          <h1 className="mori-stagger-item font-serif-cn text-[32px] leading-[1.4] tracking-[4px] text-primary md:text-[42px]">
             {page?.title || fallbackTitle}
           </h1>
 
-          <div className="mt-8 h-px w-full bg-border" />
+          <div className="mori-stagger-item mt-8 h-px w-full bg-border" style={{ animationDelay: "60ms" }} />
 
           {page?.html ? (
-            <div className="prose-article mt-8" dangerouslySetInnerHTML={{ __html: page.html }} />
+            <div
+              className="mori-stagger-item prose-article mt-8"
+              style={{ animationDelay: "90ms" }}
+              dangerouslySetInnerHTML={{ __html: page.html }}
+            />
           ) : (
-            <p className="mt-8 font-sans text-sm leading-8 text-secondary">该页面暂无内容。</p>
+            <p className="mori-stagger-item mt-8 font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "90ms" }}>
+              该页面暂无内容。
+            </p>
           )}
 
           {page && page.commentValue !== 0 ? (
-            <section className="mt-12">
+            <section className="mori-stagger-item mt-12" style={{ animationDelay: "140ms" }}>
               <CommentSection
                 slug={page.slug}
                 comments={comments}

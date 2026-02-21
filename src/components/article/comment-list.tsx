@@ -136,7 +136,7 @@ export function CommentList({
 }: CommentListProps) {
   if (comments.length === 0) {
     return (
-      <p className="pt-8 font-sans text-sm leading-8 text-secondary">
+      <p className="mori-stagger-item pt-8 font-sans text-sm leading-8 text-secondary">
         暂无评论，来做第一个写下想法的人。
       </p>
     );
@@ -144,16 +144,17 @@ export function CommentList({
 
   return (
     <section className="w-full">
-      {comments.map((comment) => (
-        <CommentItem
-          key={comment.coid}
-          comment={comment}
-          depth={0}
-          onReply={onReply}
-          canReply={canReply}
-          activeReplyCoid={activeReplyCoid}
-          replyForm={replyForm}
-        />
+      {comments.map((comment, index) => (
+        <div key={comment.coid} className="mori-stagger-item" style={{ animationDelay: `${index * 46}ms` }}>
+          <CommentItem
+            comment={comment}
+            depth={0}
+            onReply={onReply}
+            canReply={canReply}
+            activeReplyCoid={activeReplyCoid}
+            replyForm={replyForm}
+          />
+        </div>
       ))}
     </section>
   );
