@@ -11,6 +11,7 @@ import { TableOfContents } from "@/components/article/table-of-contents";
 import { MobileTocSheet } from "@/components/article/mobile-toc-sheet";
 import { PostNavigation } from "@/components/article/post-navigation";
 import { CommentSection } from "@/components/article/comment-section";
+import { SidePostNavigation } from "@/components/article/side-post-navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -56,25 +57,30 @@ export default async function PostPage({ params, searchParams }: PostPageProps) 
         <section className="flex flex-col gap-8 py-6 md:gap-10 md:py-[100px]">
           <PostHero post={detail.post} readCount={detail.readCount} likeCount={detail.likeCount} />
 
-          <section className="min-[1280px]:mx-auto min-[1280px]:grid min-[1280px]:max-w-[1440px] min-[1280px]:grid-cols-[180px_minmax(0,1fr)_180px] min-[1280px]:gap-x-8 min-[1440px]:grid-cols-[200px_850px_200px] min-[1440px]:gap-x-[95px]">
-            {detail.column ? (
-              <aside className="hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block min-[1280px]:max-h-[calc(100vh-7rem)] min-[1280px]:self-start min-[1280px]:overflow-y-auto min-[1280px]:pr-1">
+          <section className="min-[1280px]:mx-auto min-[1280px]:grid min-[1280px]:max-w-[1440px] min-[1280px]:grid-cols-[180px_minmax(0,1fr)_180px] min-[1280px]:gap-x-8 min-[1440px]:grid-cols-[180px_850px_200px] min-[1440px]:gap-x-[95px]">
+            <aside className="hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block min-[1280px]:w-[180px] min-[1280px]:max-h-[calc(100vh-7rem)] min-[1280px]:self-start min-[1280px]:justify-self-end min-[1280px]:overflow-y-auto min-[1280px]:pr-1">
+              <SidePostNavigation
+                posts={detail.sideNavigationPosts}
+                currentCid={detail.post.cid}
+                className={detail.column ? "mb-8" : undefined}
+              />
+              {detail.column ? (
                 <ColumnDirectory
                   column={detail.column}
                   currentSlug={detail.post.slug}
                   articles={detail.columnArticles}
                 />
-              </aside>
-            ) : (
-              <div className="hidden min-[1280px]:block" aria-hidden />
-            )}
+              ) : null}
+            </aside>
 
             <div className="mx-auto w-full max-w-[850px] flex flex-col gap-8">
               <PostBody post={detail.post} />
 
               <section className="flex flex-col gap-5 md:gap-6">
                 {detail.column ? <ColumnInfoCard column={detail.column} /> : null}
-                <PostNavigation prev={detail.adjacent.prev} next={detail.adjacent.next} />
+                <div className="min-[1280px]:hidden">
+                  <PostNavigation prev={detail.adjacent.prev} next={detail.adjacent.next} nextFirst />
+                </div>
               </section>
 
               {detail.post.commentValue !== 0 ? (

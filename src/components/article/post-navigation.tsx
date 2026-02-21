@@ -5,6 +5,7 @@ import { NormalizedPost } from "@/lib/typecho-types";
 interface PostNavigationProps {
   prev?: NormalizedPost;
   next?: NormalizedPost;
+  nextFirst?: boolean;
 }
 
 function NavBlock({ label, post }: { label: string; post?: NormalizedPost }) {
@@ -23,15 +24,24 @@ function NavBlock({ label, post }: { label: string; post?: NormalizedPost }) {
   );
 }
 
-export function PostNavigation({ prev, next }: PostNavigationProps) {
+export function PostNavigation({ prev, next, nextFirst = false }: PostNavigationProps) {
   if (!prev && !next) {
     return null;
   }
 
   return (
     <section className="w-full">
-      <NavBlock label="上一篇" post={prev} />
-      <NavBlock label="下一篇" post={next} />
+      {nextFirst ? (
+        <>
+          <NavBlock label="下一篇" post={next} />
+          <NavBlock label="上一篇" post={prev} />
+        </>
+      ) : (
+        <>
+          <NavBlock label="上一篇" post={prev} />
+          <NavBlock label="下一篇" post={next} />
+        </>
+      )}
       <div className="h-px w-full bg-border" />
     </section>
   );

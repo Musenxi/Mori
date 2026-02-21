@@ -280,6 +280,32 @@ function createAdjacentMap(posts: NormalizedPost[], currentCid: number) {
   };
 }
 
+function buildSideNavigationPosts(posts: NormalizedPost[], currentCid: number, limit = 10) {
+  if (limit <= 0) {
+    return [] as NormalizedPost[];
+  }
+
+  const sorted = [...posts].sort((a, b) => b.created - a.created);
+  if (sorted.length <= limit) {
+    return sorted;
+  }
+
+  const currentIndex = sorted.findIndex((item) => item.cid === currentCid);
+  const dynamicLimitMap = [5, 6, 7, 8, 9];
+  const dynamicLimit = currentIndex >= 0
+    ? dynamicLimitMap[Math.min(currentIndex, dynamicLimitMap.length - 1)]
+    : limit;
+  const finalLimit = Math.min(limit, dynamicLimit, sorted.length);
+
+  const top = sorted.slice(0, finalLimit);
+  if (currentIndex === -1 || top.some((item) => item.cid === currentCid)) {
+    return top;
+  }
+
+  const current = sorted[currentIndex];
+  return [...top.slice(0, finalLimit - 1), current].sort((a, b) => b.created - a.created);
+}
+
 function findColumnInfo(post: NormalizedPost, columns: ColumnInfo[]) {
   const slug = post.seriesSlug?.trim() || "";
   if (!slug) {
@@ -331,6 +357,7 @@ export async function getPostDetailData(
   const article = prepareArticleContent(post.html);
   const allPosts = flattenArchives(archives);
   const adjacent = createAdjacentMap(allPosts, post.cid);
+  const sideNavigationPosts = buildSideNavigationPosts(allPosts, post.cid, 10);
   const columns = buildColumnsFromColumnCategory(categories, allPosts);
 
   const rawFields = rawPost.fields ?? {};
@@ -363,6 +390,7 @@ export async function getPostDetailData(
     } satisfies CommentPagination,
     tocItems: article.tocItems,
     adjacent,
+    sideNavigationPosts,
     column,
     columnArticles: buildColumnArticles(sameColumnPosts, post.cid),
   };
