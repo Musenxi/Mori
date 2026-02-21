@@ -391,13 +391,6 @@ function findColumnInfo(post: NormalizedPost, columns: ColumnInfo[]) {
   return columns.find((item) => item.slug === slug) ?? null;
 }
 
-function getCoverImage(post: NormalizedPost) {
-  if (post.coverImage) {
-    return post.coverImage;
-  }
-  return "/images/post-placeholder.svg";
-}
-
 function buildColumnArticles(posts: NormalizedPost[], currentCid: number) {
   return posts.filter((item) => item.cid !== currentCid).slice(0, 5);
 }
@@ -442,6 +435,10 @@ export async function getPostDetailData(
   const columns = buildColumnsFromColumnCategory(categories, allPosts);
 
   const rawFields = rawPost.fields ?? {};
+  const bannerImage =
+    typeof rawFields.banner?.value === "string" && rawFields.banner.value.trim()
+      ? rawFields.banner.value.trim()
+      : undefined;
   const readCount =
     (typeof rawFields.readCount?.value === "string" && rawFields.readCount.value.trim()) || "--";
   const likeCount =
@@ -459,7 +456,7 @@ export async function getPostDetailData(
     post: {
       ...post,
       html: article.html,
-      coverImage: getCoverImage(post),
+      coverImage: bannerImage,
     },
     readCount,
     likeCount,

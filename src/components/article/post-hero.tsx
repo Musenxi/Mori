@@ -10,8 +10,6 @@ interface PostHeroProps {
 }
 
 export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProps) {
-  const src = post.coverImage || "/images/post-placeholder.svg";
-
   return (
     <section className="mx-auto flex w-full max-w-[1104px] flex-col items-center gap-6 pt-10 md:pt-10">
       <h1 className="w-full max-w-[850px] text-center font-serif-cn text-[32px] leading-[1.4] tracking-[2px] text-primary md:text-[42px]">
@@ -26,16 +24,18 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
         <span>{likeCount}</span>
       </div>
 
-      <figure className="w-full">
-        <Image
-          src={src}
-          alt={post.title}
-          width={1104}
-          height={460}
-          unoptimized
-          className="h-[245px] w-full object-cover md:h-[460px]"
-        />
-      </figure>
+      {post.coverImage ? (
+        <figure className="w-full">
+          <Image
+            src={post.coverImage}
+            alt={post.title}
+            width={1104}
+            height={460}
+            unoptimized
+            className="h-[245px] w-full object-cover md:h-[460px]"
+          />
+        </figure>
+      ) : null}
     </section>
   );
 }
