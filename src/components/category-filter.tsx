@@ -6,32 +6,67 @@ import { cn } from "@/lib/cn";
 interface CategoryFilterProps {
   categories: ColumnInfo[];
   activeSlug: string | null;
+  onSelect?: (slug: string | null) => void;
+  disabled?: boolean;
 }
 
-function FilterChip({ href, active, label }: { href: string; active: boolean; label: string }) {
+function FilterChip({
+  href,
+  active,
+  label,
+  onClick,
+  disabled = false,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  const className = cn(
+    "inline-flex items-center rounded-full px-4 py-1.5 font-sans text-sm transition-colors",
+    active ? "bg-primary text-bg" : "bg-tag text-secondary hover:bg-hover",
+    disabled && "cursor-not-allowed opacity-60",
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={className}
+      >
+        {label}
+      </button>
+    );
+  }
+
   return (
-    <Link
-      href={href}
-      className={cn(
-        "inline-flex items-center rounded-full px-4 py-1.5 font-sans text-sm transition-colors",
-        active ? "bg-primary text-bg" : "bg-tag text-secondary hover:bg-hover",
-      )}
-    >
+    <Link href={href} className={className}>
       {label}
     </Link>
   );
 }
 
-export function CategoryFilter({ categories, activeSlug }: CategoryFilterProps) {
+export function CategoryFilter({ categories, activeSlug, onSelect, disabled = false }: CategoryFilterProps) {
   return (
     <div className="flex flex-wrap gap-3">
-      <FilterChip href="/category" active={!activeSlug} label="全部" />
+      <FilterChip
+        href="/category"
+        active={!activeSlug}
+        label="全部"
+        onClick={onSelect ? () => onSelect(null) : undefined}
+        disabled={disabled}
+      />
       {categories.map((category) => (
         <FilterChip
           key={category.slug}
           href={`/category?slug=${encodeURIComponent(category.slug)}`}
           active={activeSlug === category.slug}
           label={category.name}
+          onClick={onSelect ? () => onSelect(category.slug) : undefined}
+          disabled={disabled}
         />
       ))}
     </div>

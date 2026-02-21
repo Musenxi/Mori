@@ -14,10 +14,10 @@ interface ShellProps {
 
 export function Shell({ context, navItems, children, mobileArticleMode = false }: ShellProps) {
   return (
-    <div className="min-h-screen bg-bg text-primary">
+    <div className="flex min-h-screen flex-col bg-bg text-primary">
       <SiteHeader blogTitle={context.blogTitle} navItems={navItems} mobileArticleMode={mobileArticleMode} />
       {!context.configured ? <NoConfigAlert /> : null}
-      {children}
+      <div className="flex-1">{children}</div>
       <SiteFooter blogTitle={context.blogTitle} />
     </div>
   );

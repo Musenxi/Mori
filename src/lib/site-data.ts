@@ -84,6 +84,72 @@ function stripAndSlice(text: string, fallback: string) {
   return fallback;
 }
 
+function normalizeCategorySlug(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function collectCategoryTreeSlugs(category: TypechoCategory, bucket: Set<string>) {
+  const slug = normalizeCategorySlug(category.slug);
+  if (slug) {
+    bucket.add(slug);
+  }
+
+  const children = Array.isArray(category.children) ? category.children : [];
+  children.forEach((child) => {
+    collectCategoryTreeSlugs(child, bucket);
+  });
+}
+
+function getExcludedCategorySlugs(categories: TypechoCategory[]) {
+  const excluded = new Set<string>();
+  const columnParent = categories.find((item) => normalizeCategorySlug(item.slug) === "column");
+  if (!columnParent) {
+    return excluded;
+  }
+
+  collectCategoryTreeSlugs(columnParent, excluded);
+  excluded.add("column");
+
+  const columnParentMid = Number(columnParent.mid);
+  if (!Number.isFinite(columnParentMid)) {
+    return excluded;
+  }
+
+  const excludedMids = new Set<number>([columnParentMid]);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    categories.forEach((item) => {
+      const mid = Number(item.mid);
+      const parent = Number(item.parent ?? 0);
+      if (!Number.isFinite(mid) || !Number.isFinite(parent)) {
+        return;
+      }
+
+      if (excludedMids.has(parent) && !excludedMids.has(mid)) {
+        excludedMids.add(mid);
+        changed = true;
+      }
+    });
+  }
+
+  categories.forEach((item) => {
+    const mid = Number(item.mid);
+    if (!Number.isFinite(mid) || !excludedMids.has(mid)) {
+      return;
+    }
+
+    const slug = normalizeCategorySlug(item.slug);
+    if (slug) {
+      excluded.add(slug);
+    }
+  });
+
+  return excluded;
+}
+
 function getChildrenOfColumnParent(categories: TypechoCategory[], parent: TypechoCategory) {
   const children = Array.isArray(parent.children) ? parent.children : [];
   if (children.length > 0) {
@@ -214,22 +280,31 @@ export async function getHomeData() {
 }
 
 export async function getCategoryData(slug: string | null) {
-  const [categories, posts] = await Promise.all([
-    getCategories(),
-    getPosts({
-      page: 1,
-      pageSize: 100,
-      filterType: slug ? "category" : undefined,
-      filterSlug: slug ?? undefined,
-      showDigest: "excerpt",
-      limit: 96,
-      showContent: true,
-    }),
-  ]);
+  const categories = await getCategories();
+  const excludedCategorySlugs = getExcludedCategorySlugs(categories);
+  const normalizedSlug = slug?.trim() || null;
+  const selectedSlug = normalizeCategorySlug(normalizedSlug);
+  const hiddenCategorySelected = Boolean(selectedSlug && excludedCategorySlugs.has(selectedSlug));
 
-  const groups = groupPostsByYear(normalizePosts(posts.dataSet));
+  const posts = hiddenCategorySelected
+    ? []
+    : normalizePosts(
+      (
+        await getPosts({
+          page: 1,
+          pageSize: 100,
+          filterType: normalizedSlug ? "category" : undefined,
+          filterSlug: normalizedSlug ?? undefined,
+          showDigest: "excerpt",
+          limit: 96,
+          showContent: true,
+        })
+      ).dataSet,
+    ).filter((post) => !excludedCategorySlugs.has(normalizeCategorySlug(post.categorySlug)));
+
+  const groups = groupPostsByYear(posts);
   const topCategories = categories
-    .filter((item) => item.slug && item.name)
+    .filter((item) => item.slug && item.name && !excludedCategorySlugs.has(normalizeCategorySlug(item.slug)))
     .map(mapCategoryToColumn)
     .sort((a, b) => b.count - a.count);
 

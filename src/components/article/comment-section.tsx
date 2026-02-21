@@ -91,14 +91,15 @@ export function CommentSection({
         throw new Error(result.message || "评论加载失败，请稍后重试。");
       }
 
-      const nextCommentCount = result.data.comments.length;
-      if (options?.preserveExistingOnEmpty && result.data.comments.length === 0) {
-        setCurrentComments((prev) => (prev.length > 0 ? prev : result.data.comments));
+      const payload = result.data;
+      const nextCommentCount = payload.comments.length;
+      if (options?.preserveExistingOnEmpty && payload.comments.length === 0) {
+        setCurrentComments((prev) => (prev.length > 0 ? prev : payload.comments));
       } else {
-        setCurrentComments(result.data.comments);
+        setCurrentComments(payload.comments);
       }
-      setCurrentPagination(result.data.pagination);
-      window.history.replaceState(null, "", buildPageUrl(result.data.pagination.page));
+      setCurrentPagination(payload.pagination);
+      window.history.replaceState(null, "", buildPageUrl(payload.pagination.page));
       return { ok: true, commentCount: nextCommentCount };
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "评论加载失败，请稍后重试。");
