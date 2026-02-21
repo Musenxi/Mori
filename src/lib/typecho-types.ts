@@ -150,6 +150,7 @@ export interface NormalizedComment {
   createdLabel: string;
   html: string;
   mailHash?: string;
+  avatarUrl?: string;
   children: NormalizedComment[];
 }
 

@@ -1,4 +1,6 @@
-import { ReactNode } from "react";
+"use client";
+
+import { ReactNode, useState } from "react";
 
 import { NormalizedComment } from "@/lib/typecho-types";
 import { cn } from "@/lib/cn";
@@ -52,12 +54,26 @@ function CommentItem({
   replyForm?: ReactNode;
 }) {
   const authorUrl = normalizeAuthorUrl(comment.url);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const showAvatar = Boolean(comment.avatarUrl) && !avatarFailed;
 
   return (
     <article className={cn("pt-8", depth === 1 && "pl-8 md:pl-12", depth >= 2 && "pl-6 md:pl-16")}>
       <div className="flex gap-3 md:gap-5">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-tag md:h-10 md:w-10">
-          <span className="font-serif-cn text-base text-primary">{comment.initial}</span>
+          {showAvatar ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={comment.avatarUrl}
+              alt={`${comment.author} 的头像`}
+              className="h-full w-full rounded-[10px] object-cover"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => setAvatarFailed(true)}
+            />
+          ) : (
+            <span className="font-serif-cn text-base text-primary">{comment.initial}</span>
+          )}
         </div>
 
         <div className="min-w-0 flex-1">

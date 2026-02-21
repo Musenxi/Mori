@@ -17,6 +17,29 @@ const FULL_DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   weekday: "long",
 });
 
+function buildGravatarUrl(mailHash?: string) {
+  const hash = mailHash?.trim();
+  if (!hash) {
+    return undefined;
+  }
+
+  const prefix = process.env.GRAVATAR_PREFIX?.trim();
+  if (!prefix) {
+    return undefined;
+  }
+
+  if (prefix.includes("{hash}")) {
+    return prefix.replace("{hash}", hash);
+  }
+
+  if (prefix.includes("%s")) {
+    return prefix.replace("%s", hash);
+  }
+
+  const separator = prefix.endsWith("/") || prefix.endsWith("=") ? "" : "/";
+  return `${prefix}${separator}${hash}`;
+}
+
 export function formatFullDate(tsSeconds: number) {
   return FULL_DATE_FORMATTER.format(new Date(tsSeconds * 1000));
 }
@@ -307,6 +330,7 @@ export function normalizeCommentTree(raw: TypechoCommentRaw[], parentAuthor?: st
       createdLabel: formatFullDate(Number(comment.created)),
       html,
       mailHash: comment.mailHash,
+      avatarUrl: buildGravatarUrl(comment.mailHash),
       children: normalizeCommentTree(comment.children ?? [], comment.author),
     };
   });

@@ -37,6 +37,7 @@ pnpm dev
 TYPECHO_API_BASE_URL="https://your-typecho-site.com/api"
 TYPECHO_API_TOKEN="your-plugin-api-token"
 TYPECHO_REVALIDATE_SECONDS="90"
+GRAVATAR_PREFIX="https://gravatar.com/avatar/"
 ```
 
 如果 Typecho 没开伪静态，请使用：
@@ -44,6 +45,13 @@ TYPECHO_REVALIDATE_SECONDS="90"
 ```bash
 TYPECHO_API_BASE_URL="https://your-typecho-site.com/index.php/api"
 ```
+
+`GRAVATAR_PREFIX` 用于评论头像解析，支持以下形式：
+
+- `https://gravatar.com/avatar/`（自动追加 hash）
+- `https://cravatar.cn/avatar/`（自动追加 hash）
+- `https://gravatar.com/avatar/{hash}?d=identicon&s=80`（显式占位）
+- `https://gravatar.com/avatar/%s?d=identicon&s=80`（`%s` 占位）
 
 ## Typecho Restful 插件要求
 
