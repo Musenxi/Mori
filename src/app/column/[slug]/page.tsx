@@ -22,7 +22,7 @@ export default async function ColumnDetailPage({ params }: ColumnDetailPageProps
   if (!context.configured) {
     return (
       <Shell context={context} navItems={navItems}>
-        <main className="mx-auto w-full max-w-[1440px] px-5 py-10 md:px-[300px] md:py-[80px]" />
+        <main className="mx-auto w-full max-w-[1440px] px-5 py-10 md:px-[80px] md:py-[80px] md:pl-[clamp(20px,calc(40vw-280px),300px)]" />
       </Shell>
     );
   }
@@ -38,7 +38,7 @@ export default async function ColumnDetailPage({ params }: ColumnDetailPageProps
 
   return (
     <Shell context={context} navItems={navItems}>
-      <main className="mx-auto w-full max-w-[1440px] px-5 py-10 md:px-[300px] md:py-[80px]">
+      <main className="mx-auto w-full max-w-[1440px] px-5 py-10 md:px-[80px] md:py-[80px] md:pl-[clamp(20px,calc(40vw-280px),300px)]">
         <ColumnDetailClient
           columns={columns}
           initialSlug={slug}

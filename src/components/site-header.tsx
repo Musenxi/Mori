@@ -60,11 +60,56 @@ function ThemeToggle() {
 
 export function SiteHeader({ blogTitle, navItems, mobileArticleMode = false }: SiteHeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileHeaderVisible, setMobileHeaderVisible] = useState(true);
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (mobileOpen || window.innerWidth >= 768) {
+      setMobileHeaderVisible(true);
+      return;
+    }
+
+    let lastY = window.scrollY;
+    let rafId = 0;
+
+    const onScroll = () => {
+      if (rafId) {
+        return;
+      }
+
+      rafId = window.requestAnimationFrame(() => {
+        const currentY = window.scrollY;
+        const delta = currentY - lastY;
+
+        if (currentY <= 24) {
+          setMobileHeaderVisible(true);
+        } else if (delta > 6) {
+          setMobileHeaderVisible(false);
+        } else if (delta < -6) {
+          setMobileHeaderVisible(true);
+        }
+
+        lastY = currentY;
+        rafId = 0;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
     };
   }, [mobileOpen]);
 
@@ -96,7 +141,12 @@ export function SiteHeader({ blogTitle, navItems, mobileArticleMode = false }: S
         </div>
       </header>
 
-      <header className="relative z-30 w-full px-5 py-6 md:hidden">
+      <header
+        className={cn(
+          "sticky top-0 z-30 w-full bg-bg/95 px-5 py-6 backdrop-blur-sm transition-transform duration-200 md:hidden",
+          mobileHeaderVisible || mobileOpen ? "translate-y-0" : "-translate-y-full",
+        )}
+      >
         <div className="flex items-center justify-between">
           <Link href="/" className="font-serif-cn text-[22px] tracking-[4px] text-primary transition-opacity hover:opacity-70">
             {blogTitle}
