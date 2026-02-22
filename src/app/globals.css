@@ -1,3 +1,6 @@
+@import "../fonts/STD/light/font.css";
+@import "../fonts/STD/regular/font.css";
+@import "../fonts/STD/bold/font.css";
 @import "tailwindcss";
 
 :root {
@@ -94,6 +97,8 @@ a {
   color: var(--primary);
   max-width: 100%;
   overflow-x: hidden;
+  font-family: "STDongGuanTi", var(--font-noto-serif-sc), "Songti SC", serif;
+  font-weight: 400;
 }
 
 .prose-article > * {
@@ -126,7 +131,7 @@ a {
 .prose-article h2,
 .prose-article h3,
 .prose-article h4 {
-  font-family: var(--font-noto-serif-sc), "Songti SC", serif;
+  font-family: "STDongGuanTi", var(--font-noto-serif-sc), "Songti SC", serif;
   color: var(--primary);
   line-height: 1.5;
   scroll-margin-top: 104px;
@@ -167,7 +172,7 @@ a {
 }
 
 .prose-article blockquote p {
-  font-family: var(--font-noto-serif-sc), "Songti SC", serif;
+  font-family: "STDongGuanTi", var(--font-noto-serif-sc), "Songti SC", serif;
   font-size: 24px;
   line-height: 1.6;
   color: var(--primary);
