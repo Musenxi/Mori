@@ -366,6 +366,7 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   font-family: var(--font-inter), "PingFang SC", sans-serif;
   font-size: 1.071rem;
