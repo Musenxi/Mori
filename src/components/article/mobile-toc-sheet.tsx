@@ -75,6 +75,7 @@ export function MobileTocSheet({ items }: MobileTocSheetProps) {
           items={items}
           className="max-h-[60vh] overflow-y-auto px-6 py-4"
           onItemClick={() => setOpen(false)}
+          scrollInNextTick
         />
 
         <div className="h-6" />

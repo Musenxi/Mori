@@ -206,6 +206,7 @@ interface PostListParams {
   showContent?: boolean;
   showDigest?: "more" | "excerpt";
   limit?: number;
+  parseMarkdown?: boolean;
   revalidate?: number | false;
 }
 
@@ -219,6 +220,7 @@ export async function getPosts(params: PostListParams = {}): Promise<TypechoPost
       showContent: params.showContent,
       showDigest: params.showDigest,
       limit: params.limit,
+      parseMarkdown: params.parseMarkdown ?? false,
     },
     revalidate: params.revalidate,
   });
@@ -229,6 +231,7 @@ interface ArchiveParams {
   showDigest?: "more" | "excerpt";
   limit?: number;
   order?: "asc" | "desc";
+  parseMarkdown?: boolean;
   revalidate?: number | false;
 }
 
@@ -239,6 +242,7 @@ export async function getArchives(params: ArchiveParams = {}): Promise<TypechoAr
       showDigest: params.showDigest,
       limit: params.limit,
       order: params.order ?? "desc",
+      parseMarkdown: params.parseMarkdown ?? false,
     },
     revalidate: params.revalidate,
   });
@@ -249,7 +253,7 @@ export async function getPostBySlug(
   revalidate: number | false = 60,
 ): Promise<TypechoPostRaw> {
   return requestTypecho<TypechoPostRaw>("post", {
-    query: { slug },
+    query: { slug, parseMarkdown: false },
     revalidate,
   });
 }
@@ -259,7 +263,7 @@ export async function getPostByCid(
   revalidate: number | false = 60,
 ): Promise<TypechoPostRaw> {
   return requestTypecho<TypechoPostRaw>("post", {
-    query: { cid },
+    query: { cid, parseMarkdown: false },
     revalidate,
   });
 }
@@ -302,12 +306,12 @@ export async function createComment(
 ): Promise<TypechoCommentRaw> {
   const post = input.cid
     ? await requestTypecho<TypechoPostRaw>("post", {
-        query: { cid: input.cid },
+        query: { cid: input.cid, parseMarkdown: false },
         revalidate: false,
         userAgent,
       })
     : await requestTypecho<TypechoPostRaw>("post", {
-        query: { slug: input.slug },
+        query: { slug: input.slug, parseMarkdown: false },
         revalidate: false,
         userAgent,
       });

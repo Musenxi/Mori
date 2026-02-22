@@ -3,7 +3,6 @@ import sanitizeHtml from "sanitize-html";
 import {
   NormalizedComment,
   NormalizedPost,
-  TocItem,
   TypechoArchivesResponse,
   TypechoCommentRaw,
   TypechoPostRaw,
@@ -97,15 +96,13 @@ function injectHash(prefix: string, hash: string) {
   return `${base}${separator}${hash}${suffix}`;
 }
 
-function extractCoverFromHtml(html?: string) {
-  if (!html) {
+function extractCoverFromMarkdown(content?: string) {
+  if (!content) {
     return "";
   }
-  const match = html.match(/<img[^>]*src=["']([^"']+)["'][^>]*>/i);
-  if (!match?.[1]) {
-    return "";
-  }
-  return match[1];
+
+  const markdownMatch = content.match(/!\[[^\]]*]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/i);
+  return markdownMatch?.[1] || "";
 }
 
 function resolveCategory(raw: TypechoPostRaw) {
@@ -195,7 +192,7 @@ export function normalizePost(raw: TypechoPostRaw): NormalizedPost {
     seriesName: series?.name,
     seriesSlug: series?.slug,
     tags: resolveTags(raw),
-    coverImage: coverField || extractCoverFromHtml(html) || undefined,
+    coverImage: coverField || extractCoverFromMarkdown(html) || undefined,
   };
 }
 
@@ -233,95 +230,6 @@ export function flattenArchives(archives: TypechoArchivesResponse) {
   });
 
   return normalizePosts(flattened);
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function slugifyHeading(text: string) {
-  const cleaned = text
-    .toLowerCase()
-    .replace(/<[^>]+>/g, "")
-    .trim()
-    .replace(/[^\p{L}\p{N}\s-]/gu, "")
-    .replace(/\s+/g, "-");
-  return cleaned || "section";
-}
-
-const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
-  allowedTags: [
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "p",
-    "blockquote",
-    "ul",
-    "ol",
-    "li",
-    "code",
-    "pre",
-    "strong",
-    "em",
-    "a",
-    "img",
-    "hr",
-    "br",
-    "table",
-    "thead",
-    "tbody",
-    "tr",
-    "th",
-    "td",
-  ],
-  allowedAttributes: {
-    a: ["href", "title", "target", "rel"],
-    img: ["src", "alt", "title", "width", "height", "loading"],
-    "*": ["id"],
-  },
-  allowedSchemes: ["http", "https", "mailto", "tel", "data"],
-  transformTags: {
-    a: sanitizeHtml.simpleTransform("a", {
-      target: "_blank",
-      rel: "noopener noreferrer",
-    }),
-    img: (tagName, attribs) => ({
-      tagName,
-      attribs: {
-        ...attribs,
-        loading: attribs.loading ?? "lazy",
-      },
-    }),
-  },
-};
-
-export function prepareArticleContent(rawHtml: string | undefined) {
-  const cleaned = sanitizeHtml(rawHtml ?? "", SANITIZE_OPTIONS);
-
-  const tocItems: TocItem[] = [];
-  let index = 0;
-
-  const htmlWithHeadingIds = cleaned.replace(/<h([2-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (_, level, attrs, inner) => {
-    index += 1;
-    const text = stripHtml(inner);
-    const base = slugifyHeading(text);
-    const id = `${base}-${index}`;
-
-    tocItems.push({
-      id,
-      text,
-      level: Number(level),
-    });
-
-    const attrsWithoutId = String(attrs).replace(new RegExp(`\\sid=["']${escapeRegExp(id)}["']`, "i"), "");
-    return `<h${level}${attrsWithoutId} id="${id}">${inner}</h${level}>`;
-  });
-
-  return {
-    html: htmlWithHeadingIds,
-    tocItems,
-  };
 }
 
 export function normalizeCommentTree(raw: TypechoCommentRaw[], parentAuthor?: string): NormalizedComment[] {

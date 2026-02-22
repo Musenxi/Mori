@@ -1,0 +1,448 @@
+"use client";
+
+import type { ComponentType } from "react";
+import { useEffect } from "react";
+import { createRoot, Root } from "react-dom/client";
+
+type ExcalidrawInitialData = Record<string, unknown>;
+type ExcalidrawAPI = {
+  scrollToContent?: (target?: unknown, options?: { fitToContent?: boolean }) => void;
+};
+
+type ExcalidrawProps = {
+  detectScroll?: boolean;
+  initialData?:
+    | ExcalidrawInitialData
+    | (() => Promise<ExcalidrawInitialData | null> | ExcalidrawInitialData | null);
+  theme?: "dark" | "light";
+  viewModeEnabled?: boolean;
+  zenModeEnabled?: boolean;
+  excalidrawAPI?: (api: ExcalidrawAPI) => void;
+};
+type ExcalidrawComponentType = ComponentType<ExcalidrawProps>;
+
+let excalidrawComponentPromise: Promise<ExcalidrawComponentType> | null = null;
+const EXCALIDRAW_PORTAL_SELECTOR = ".excalidraw-modal-container";
+const excalidrawPortals = new Map<HTMLElement, HTMLElement>();
+let excalidrawActiveHost: HTMLElement | null = null;
+let excalidrawPortalObserver: MutationObserver | null = null;
+
+function decodeBase64Utf8(value: string) {
+  try {
+    const binary = window.atob(value);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return "";
+  }
+}
+
+async function copyText(text: string) {
+  if (!text) {
+    return false;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+function parseJsonObject(raw: string) {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object") {
+      return parsed as ExcalidrawInitialData;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+async function waitForRenderableSize(node: HTMLElement) {
+  const maxAttempts = 12;
+  for (let index = 0; index < maxAttempts; index += 1) {
+    const rect = node.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  }
+}
+
+async function resolveExcalidrawInitialData(source: string) {
+  const nextSource = source.trim();
+  if (!nextSource) {
+    return null;
+  }
+
+  try {
+    const requestUrl = (() => {
+      if (nextSource.startsWith("/")) {
+        return new URL(nextSource, window.location.origin).toString();
+      }
+
+      const parsed = new URL(nextSource);
+      if (!/^https?:$/i.test(parsed.protocol)) {
+        return "";
+      }
+
+      return parsed.toString();
+    })();
+
+    if (!requestUrl) {
+      return null;
+    }
+
+    const response = await fetch(requestUrl, {
+      cache: "force-cache",
+      mode: "cors",
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const raw = await response.text();
+    return parseJsonObject(raw);
+  } catch {
+    return null;
+  }
+}
+
+function positionExcalidrawPortal(portal: HTMLElement, host: HTMLElement) {
+  const viewportHeight = window.innerHeight;
+  const rect = host.getBoundingClientRect();
+  portal.style.position = "fixed";
+  portal.style.top = `${rect.top}px`;
+  portal.style.left = `${rect.left}px`;
+  portal.style.width = `${rect.width}px`;
+  portal.style.height = `${rect.height}px`;
+  portal.style.zIndex = "1000";
+}
+
+function assignExcalidrawPortals(host: HTMLElement) {
+  const portals = Array.from(
+    document.body.querySelectorAll<HTMLElement>(EXCALIDRAW_PORTAL_SELECTOR),
+  );
+
+  portals.forEach((portal) => {
+    if (!excalidrawPortals.has(portal)) {
+      excalidrawPortals.set(portal, host);
+    }
+    if (excalidrawPortals.get(portal) === host) {
+      positionExcalidrawPortal(portal, host);
+    }
+  });
+}
+
+function updateExcalidrawPortals() {
+  excalidrawPortals.forEach((host, portal) => {
+    if (!document.body.contains(portal)) {
+      excalidrawPortals.delete(portal);
+      return;
+    }
+    if (!document.contains(host)) {
+      excalidrawPortals.delete(portal);
+      return;
+    }
+    positionExcalidrawPortal(portal, host);
+  });
+}
+
+async function loadExcalidrawComponent() {
+  if (!excalidrawComponentPromise) {
+    excalidrawComponentPromise = import("@excalidraw/excalidraw").then((module) => {
+      const exported = module as unknown as {
+        Excalidraw?: ExcalidrawComponentType;
+        default?: ExcalidrawComponentType;
+      };
+      const Component = exported.Excalidraw ?? exported.default;
+      if (!Component) {
+        throw new Error("Excalidraw component export not found.");
+      }
+      return Component;
+    });
+  }
+  return excalidrawComponentPromise;
+}
+
+function activateTab(root: HTMLElement, index: string) {
+  const allTriggers = root.querySelectorAll<HTMLButtonElement>(".mori-tab-trigger");
+  const allPanels = root.querySelectorAll<HTMLElement>(".mori-tab-panel");
+
+  allTriggers.forEach((button) => {
+    const active = button.dataset.tabIndex === index;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+    button.setAttribute("tabindex", active ? "0" : "-1");
+  });
+
+  allPanels.forEach((panel) => {
+    const active = panel.dataset.tabIndex === index;
+    panel.classList.toggle("is-active", active);
+  });
+}
+
+export function MarkdownRuntime() {
+  useEffect(() => {
+    const excalidrawRoots = new Map<HTMLElement, Root>();
+    const excalidrawHostCleanups = new Map<HTMLElement, () => void>();
+    let disposed = false;
+
+    const mountExcalidrawNode = async (node: HTMLElement) => {
+      if (disposed || excalidrawRoots.has(node)) {
+        return;
+      }
+
+      const source = String(node.dataset.source || "").trim();
+      if (!source) {
+        return;
+      }
+
+      const Excalidraw = await loadExcalidrawComponent();
+      if (disposed || excalidrawRoots.has(node)) {
+        return;
+      }
+
+      await waitForRenderableSize(node);
+      if (disposed || excalidrawRoots.has(node)) {
+        return;
+      }
+
+      const theme = document.documentElement.classList.contains("dark") ? "dark" : "light";
+      const appContainer = document.createElement("div");
+      appContainer.className = "mori-excalidraw-app";
+      node.replaceChildren(appContainer);
+
+      const root = createRoot(appContainer);
+      excalidrawRoots.set(node, root);
+      root.render(
+        <Excalidraw
+          detectScroll={true}
+          initialData={() => resolveExcalidrawInitialData(source)}
+          theme={theme}
+          viewModeEnabled
+          zenModeEnabled
+          excalidrawAPI={(api) => {
+            window.setTimeout(() => {
+              api?.scrollToContent?.(undefined, { fitToContent: true });
+            }, 300);
+          }}
+        />,
+      );
+
+      if (!excalidrawHostCleanups.has(node)) {
+        const activate = () => {
+          excalidrawActiveHost = node;
+          assignExcalidrawPortals(node);
+        };
+        node.addEventListener("pointerdown", activate, { capture: true });
+        node.addEventListener("focusin", activate);
+        excalidrawHostCleanups.set(node, () => {
+          node.removeEventListener("pointerdown", activate, { capture: true });
+          node.removeEventListener("focusin", activate);
+          if (excalidrawActiveHost === node) {
+            excalidrawActiveHost = null;
+          }
+        });
+      }
+
+      // Excalidraw determines mobile UI from container size; trigger re-measure after mount.
+      window.setTimeout(() => window.dispatchEvent(new Event("resize")), 16);
+      window.setTimeout(() => window.dispatchEvent(new Event("resize")), 280);
+    };
+
+    const mountAllExcalidraw = () => {
+      if (disposed) {
+        return;
+      }
+
+      const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-mori-excalidraw="1"]'));
+      nodes.forEach((node) => {
+        void mountExcalidrawNode(node);
+      });
+    };
+
+    const cleanupRemovedExcalidraw = () => {
+      excalidrawRoots.forEach((root, node) => {
+        if (!document.contains(node)) {
+          root.unmount();
+          excalidrawRoots.delete(node);
+          excalidrawHostCleanups.get(node)?.();
+          excalidrawHostCleanups.delete(node);
+        }
+      });
+    };
+
+    const observer = new MutationObserver(() => {
+      cleanupRemovedExcalidraw();
+      mountAllExcalidraw();
+    });
+
+    mountAllExcalidraw();
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+
+    if (!excalidrawPortalObserver) {
+      excalidrawPortalObserver = new MutationObserver(() => {
+        if (excalidrawActiveHost) {
+          assignExcalidrawPortals(excalidrawActiveHost);
+        }
+        updateExcalidrawPortals();
+      });
+      excalidrawPortalObserver.observe(document.body, { childList: true, subtree: true });
+      window.addEventListener("resize", updateExcalidrawPortals);
+      window.addEventListener("scroll", updateExcalidrawPortals, true);
+    }
+
+    const clickHandler = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+
+      const copyButton = target.closest<HTMLButtonElement>(".mori-code-copy");
+      if (copyButton) {
+        const code = decodeBase64Utf8(copyButton.dataset.codeB64 || "");
+        void copyText(code).then((ok) => {
+          copyButton.dataset.copyState = ok ? "copied" : "failed";
+          copyButton.textContent = ok ? "已复制" : "复制失败";
+
+          window.setTimeout(() => {
+            copyButton.dataset.copyState = "";
+            copyButton.textContent = "复制";
+          }, 1200);
+        });
+        return;
+      }
+
+      const tabTrigger = target.closest<HTMLButtonElement>(".mori-tab-trigger");
+      if (!tabTrigger) {
+        return;
+      }
+
+      const root = tabTrigger.closest<HTMLElement>(".mori-tabs-root");
+      if (!root) {
+        return;
+      }
+
+      const index = tabTrigger.dataset.tabIndex || "0";
+      activateTab(root, index);
+    };
+
+    const keydownHandler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+
+      const tabTrigger = target.closest<HTMLButtonElement>(".mori-tab-trigger");
+      if (!tabTrigger) {
+        return;
+      }
+
+      const root = tabTrigger.closest<HTMLElement>(".mori-tabs-root");
+      if (!root) {
+        return;
+      }
+
+      const triggers = Array.from(root.querySelectorAll<HTMLButtonElement>(".mori-tab-trigger"));
+      if (triggers.length === 0) {
+        return;
+      }
+
+      const currentIndex = Math.max(
+        0,
+        triggers.findIndex((button) => button === tabTrigger),
+      );
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        const next = triggers[(currentIndex + 1) % triggers.length];
+        if (!next) {
+          return;
+        }
+        activateTab(root, next.dataset.tabIndex || "0");
+        next.focus();
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        const next = triggers[(currentIndex - 1 + triggers.length) % triggers.length];
+        if (!next) {
+          return;
+        }
+        activateTab(root, next.dataset.tabIndex || "0");
+        next.focus();
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        const next = triggers[0];
+        if (!next) {
+          return;
+        }
+        activateTab(root, next.dataset.tabIndex || "0");
+        next.focus();
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        const next = triggers[triggers.length - 1];
+        if (!next) {
+          return;
+        }
+        activateTab(root, next.dataset.tabIndex || "0");
+        next.focus();
+        return;
+      }
+
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        activateTab(root, tabTrigger.dataset.tabIndex || "0");
+      }
+    };
+
+    document.addEventListener("click", clickHandler);
+    document.addEventListener("keydown", keydownHandler);
+    return () => {
+      disposed = true;
+      observer.disconnect();
+      excalidrawRoots.forEach((root) => {
+        root.unmount();
+      });
+      excalidrawHostCleanups.forEach((cleanup) => cleanup());
+      excalidrawHostCleanups.clear();
+      excalidrawRoots.clear();
+      document.removeEventListener("click", clickHandler);
+      document.removeEventListener("keydown", keydownHandler);
+    };
+  }, []);
+
+  return null;
+}

@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { NoConfigAlert } from "@/components/no-config-alert";
+import { MarkdownRuntime } from "@/components/markdown-runtime";
 import { SiteContext } from "@/lib/site-data";
 
 interface ShellProps {
@@ -18,6 +19,7 @@ export function Shell({ context, navItems, children, mobileArticleMode = false }
       <SiteHeader blogTitle={context.blogTitle} navItems={navItems} mobileArticleMode={mobileArticleMode} />
       {!context.configured ? <NoConfigAlert /> : null}
       <div className="flex-1">{children}</div>
+      <MarkdownRuntime />
       <SiteFooter blogTitle={context.blogTitle} />
     </div>
   );

@@ -4,6 +4,7 @@ import { Inter, Noto_Serif_SC } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { getSettings } from "@/lib/typecho-client";
 
+import "@excalidraw/excalidraw/index.css";
 import "./globals.css";
 
 const inter = Inter({

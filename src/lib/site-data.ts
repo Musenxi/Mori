@@ -15,9 +15,9 @@ import {
   normalizeCommentTree,
   normalizePost,
   normalizePosts,
-  prepareArticleContent,
   stripHtml,
 } from "./typecho-normalize";
+import { prepareArticleContent } from "./article-content";
 import {
   CommentPagination,
   NormalizedPost,
@@ -428,7 +428,7 @@ export async function getPostDetailData(
     getCategories(),
   ]);
 
-  const article = prepareArticleContent(post.html);
+  const article = await prepareArticleContent(post.html);
   const allPosts = flattenArchives(archives);
   const adjacent = createAdjacentMap(allPosts, post.cid);
   const sideNavigationPosts = buildSideNavigationPosts(allPosts, post.cid, 10);
@@ -488,6 +488,7 @@ export async function getStaticPageDetailBySlug(
   try {
     const rawPage = await getPostBySlug(slug, 60);
     const page = normalizePost(rawPage);
+    const article = await prepareArticleContent(page.html);
 
     const commentResponse =
       page.commentValue === 0
@@ -507,7 +508,10 @@ export async function getStaticPageDetailBySlug(
         });
 
     return {
-      page,
+      page: {
+        ...page,
+        html: article.html,
+      },
       comments: limitCommentDepth(normalizeCommentTree(commentResponse.dataSet), 2),
       commentsPagination: {
         page: commentResponse.page,

@@ -1,49 +1,57 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
+import { springScrollToElement } from "@/lib/scroller";
 import { TocItem } from "@/lib/typecho-types";
 
 interface TableOfContentsProps {
   items: TocItem[];
   className?: string;
   onItemClick?: () => void;
+  scrollInNextTick?: boolean;
 }
 
-function itemIndent(level: number) {
-  if (level <= 2) {
-    return "pl-0";
-  }
-  if (level === 3) {
-    return "pl-[10px]";
-  }
-  return "pl-5";
-}
-
-function itemTextStyle(level: number) {
-  return level >= 4 ? "text-[13px]" : "text-sm";
-}
-
-export function TableOfContents({ items, className, onItemClick }: TableOfContentsProps) {
-  const [activeId, setActiveId] = useState(items[0]?.id ?? "");
-  const headingOffset = 0;
-  const isProgrammaticScrollingRef = useRef(false);
-  const correctionTimerRef = useRef<number | null>(null);
-  const unlockTimerRef = useRef<number | null>(null);
+export function TableOfContents({
+  items,
+  className,
+  onItemClick,
+  scrollInNextTick = false,
+}: TableOfContentsProps) {
+  const [activeId, setActiveId] = useState("");
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const activeLinkRef = useRef<HTMLAnchorElement | null>(null);
 
   const ids = useMemo(() => items.map((item) => item.id), [items]);
+  const rootDepth = useMemo(() => {
+    if (items.length === 0) {
+      return 2;
+    }
+    return items.reduce((min, item) => Math.min(min, item.level), items[0]?.level ?? 2);
+  }, [items]);
 
-  function clearPendingScrollTimers() {
-    if (correctionTimerRef.current !== null) {
-      window.clearTimeout(correctionTimerRef.current);
-      correctionTimerRef.current = null;
+  const resolvedActiveId = useMemo(() => {
+    if (activeId && ids.includes(activeId)) {
+      return activeId;
     }
-    if (unlockTimerRef.current !== null) {
-      window.clearTimeout(unlockTimerRef.current);
-      unlockTimerRef.current = null;
+
+    if (typeof window !== "undefined") {
+      const hash = decodeURIComponent(window.location.hash.replace(/^#/, "").trim());
+      if (hash && ids.includes(hash)) {
+        return hash;
+      }
     }
-  }
+
+    return items[0]?.id ?? "";
+  }, [activeId, ids, items]);
+
+  const itemIndent = (level: number) => {
+    const depthOffset = Math.max(0, level - rootDepth);
+    return `${depthOffset * 0.6 + 0.5}rem`;
+  };
+
+  const itemTextStyle = (level: number) => (level >= rootDepth + 2 ? "text-[13px]" : "text-sm");
 
   useEffect(() => {
     if (ids.length === 0) {
@@ -53,10 +61,6 @@ export function TableOfContents({ items, className, onItemClick }: TableOfConten
     const observed: Element[] = [];
     const observer = new IntersectionObserver(
       (entries) => {
-        if (isProgrammaticScrollingRef.current) {
-          return;
-        }
-
         const visible = entries
           .filter((entry) => entry.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -66,8 +70,7 @@ export function TableOfContents({ items, className, onItemClick }: TableOfConten
         }
       },
       {
-        rootMargin: "-20% 0px -70% 0px",
-        threshold: [0, 1],
+        rootMargin: "-100px 0px -100px 0px",
       },
     );
 
@@ -83,102 +86,124 @@ export function TableOfContents({ items, className, onItemClick }: TableOfConten
     return () => {
       observed.forEach((element) => observer.unobserve(element));
       observer.disconnect();
-      clearPendingScrollTimers();
-      isProgrammaticScrollingRef.current = false;
     };
   }, [ids]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = decodeURIComponent(window.location.hash.replace(/^#/, "").trim());
+      if (hash && ids.includes(hash)) {
+        setActiveId(hash);
+      }
+    };
+
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [ids]);
+
+  useEffect(() => {
+    const hash = decodeURIComponent(window.location.hash.replace(/^#/, "").trim());
+    if (!hash) {
+      return;
+    }
+
+    const target = document.getElementById(hash);
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({
+      block: "center",
+      behavior: "smooth",
+    });
+  }, [ids]);
+
+  useEffect(() => {
+    const active = activeLinkRef.current;
+    const container = scrollContainerRef.current;
+    if (!active || !container) {
+      return;
+    }
+
+    const itemTop = active.offsetTop;
+    const half = container.clientHeight / 2;
+    if (itemTop < half) {
+      if (container.scrollTop > 0) {
+        container.scrollTop = Math.max(0, itemTop - 12);
+      }
+      return;
+    }
+
+    container.scrollTop = itemTop - half;
+  }, [resolvedActiveId]);
+
+  const handleScrollTo = useCallback(
+    (index: number, element: HTMLElement | null, anchorId: string) => {
+      void index;
+      onItemClick?.();
+
+      if (!element) {
+        return;
+      }
+
+      const run = () => {
+        window.history.replaceState(window.history.state, "", `#${anchorId}`);
+        springScrollToElement(element, -100).then(() => {
+          setActiveId(anchorId);
+        });
+      };
+
+      if (scrollInNextTick) {
+        requestAnimationFrame(() => {
+          run();
+        });
+        return;
+      }
+
+      run();
+    },
+    [onItemClick, scrollInNextTick],
+  );
 
   if (items.length === 0) {
     return null;
   }
 
-  function jumpToHeading(id: string) {
-    const getScrollRoot = () => document.scrollingElement || document.documentElement;
-
-    const getPageTop = () =>
-      window.scrollY ||
-      document.documentElement.scrollTop ||
-      document.body.scrollTop ||
-      0;
-
-    const getMaxPageTop = () => {
-      const root = getScrollRoot();
-      return Math.max(0, root.scrollHeight - window.innerHeight);
-    };
-
-    const setPageTop = (top: number) => {
-      const nextTop = Math.min(getMaxPageTop(), Math.max(0, top));
-      const root = getScrollRoot();
-      root.scrollTop = nextTop;
-      document.body.scrollTop = nextTop;
-      document.documentElement.scrollTop = nextTop;
-    };
-
-    const alignToHeading = (behavior: ScrollBehavior = "auto", force = false) => {
-      const target = document.getElementById(id);
-      if (!target) {
-        return;
-      }
-
-      const rawTop = target.getBoundingClientRect().top + getPageTop() - headingOffset;
-      const nextTop = Math.min(getMaxPageTop(), Math.max(0, rawTop));
-      const currentTop = getPageTop();
-
-      if (!force && Math.abs(nextTop - currentTop) < 10) {
-        return;
-      }
-
-      if (behavior === "smooth") {
-        window.scrollTo({
-          top: nextTop,
-          behavior: "smooth",
-        });
-        return;
-      }
-
-      setPageTop(nextTop);
-    };
-
-    clearPendingScrollTimers();
-    isProgrammaticScrollingRef.current = true;
-    setActiveId(id);
-    window.history.replaceState(null, "", `#${id}`);
-    alignToHeading("smooth", true);
-
-    correctionTimerRef.current = window.setTimeout(() => {
-      alignToHeading("auto");
-    }, 560);
-
-    unlockTimerRef.current = window.setTimeout(() => {
-      isProgrammaticScrollingRef.current = false;
-    }, 760);
-  }
-
   return (
-    <nav className={cn("flex flex-col gap-3", className)} aria-label="目录">
-      {items.map((item) => {
-        const active = activeId === item.id;
-        return (
-          <a
-            key={item.id}
-            href={`#${item.id}`}
-            onClick={(event) => {
-              event.preventDefault();
-              jumpToHeading(item.id);
-              onItemClick?.();
-            }}
-            className={cn(
-              "flex items-center gap-2 leading-[1.5] text-muted transition-colors hover:text-primary",
-              itemIndent(item.level),
-              itemTextStyle(item.level),
-              active && "text-primary",
-            )}
-          >
-            {active && item.level <= 2 ? <span className="h-[14px] w-[2px] bg-primary" aria-hidden /> : null}
-            <span className="font-sans">{item.text}</span>
-          </a>
-        );
-      })}
+    <nav className={cn("flex max-h-[calc(100vh-7rem)] min-h-0 flex-col", className)} aria-label="目录">
+      <div ref={scrollContainerRef} className="overflow-auto pr-1 scrollbar-none">
+        <ul className="flex flex-col px-2">
+          {items.map((item, index) => {
+            const active = resolvedActiveId === item.id;
+            return (
+              <li key={item.id} className="relative leading-none">
+                {active ? <span className="absolute inset-y-[3px] left-0 w-[2px] rounded-sm bg-primary" aria-hidden /> : null}
+                <a
+                  ref={active ? activeLinkRef : null}
+                  href={`#${item.id}`}
+                  title={item.text}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handleScrollTo(index, document.getElementById(item.id), item.id);
+                  }}
+                  className={cn(
+                    "relative mb-[2px] inline-block min-w-0 max-w-full truncate text-left font-sans leading-normal tabular-nums text-secondary opacity-55 transition-all duration-300 hover:opacity-90",
+                    itemTextStyle(item.level),
+                    active && "ml-2 text-primary opacity-100",
+                  )}
+                  style={{
+                    paddingLeft: itemIndent(item.level),
+                  }}
+                  data-index={index}
+                  data-depth={item.level}
+                >
+                  <span className="cursor-pointer">{item.text}</span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </nav>
   );
 }

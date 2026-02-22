@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ColumnInfoCard } from "@/components/column-info-card";
 import { Shell } from "@/components/shell";
 import { buildNavItems } from "@/lib/navigation";
-import { buildTocFallback, getPostDetailData, getSiteContext } from "@/lib/site-data";
+import { getPostDetailData, getSiteContext } from "@/lib/site-data";
 import { PostBody } from "@/components/article/post-body";
 import { PostHero } from "@/components/article/post-hero";
 import { ColumnDirectory } from "@/components/article/column-directory";
@@ -49,7 +49,7 @@ export default async function PostPage({ params, searchParams }: PostPageProps) 
     notFound();
   }
 
-  const tocItems = detail.tocItems.length > 0 ? detail.tocItems : buildTocFallback(detail.post.title);
+  const tocItems = detail.tocItems;
 
   return (
     <Shell context={context} navItems={navItems} mobileArticleMode>

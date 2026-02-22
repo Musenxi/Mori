@@ -70,12 +70,25 @@ export function SiteHeader({ blogTitle, navItems, mobileArticleMode = false }: S
   }, [mobileOpen]);
 
   useEffect(() => {
+    if (!mobileOpen || typeof window === "undefined") {
+      return;
+    }
+
+    const rafId = window.requestAnimationFrame(() => {
+      setMobileHeaderVisible(true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
     if (mobileOpen || window.innerWidth >= 768) {
-      setMobileHeaderVisible(true);
       return;
     }
 
