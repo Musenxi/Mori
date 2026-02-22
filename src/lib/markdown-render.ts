@@ -68,8 +68,13 @@ type LinkPreview = {
   description: string;
   image: string;
 };
+type ReferenceLinkDefinition = {
+  target: string;
+  title: string;
+};
 
 let tabsInstanceCount = 0;
+let activeReferenceLinkDefinitions = new Map<string, ReferenceLinkDefinition>();
 
 function toHtml(value: unknown): string {
   if (Array.isArray(value)) {
@@ -284,6 +289,78 @@ function parseUrlSafe(value: string) {
   } catch {
     return null;
   }
+}
+
+function normalizeReferenceLinkKey(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function parseReferenceLinkTargetAndTitle(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  let target = "";
+  let remainder = "";
+
+  if (trimmed.startsWith("<")) {
+    const closing = trimmed.indexOf(">");
+    if (closing <= 1) {
+      return null;
+    }
+    target = trimmed.slice(1, closing).trim();
+    remainder = trimmed.slice(closing + 1).trim();
+  } else {
+    const matchedTarget = trimmed.match(/^(\S+)/);
+    if (!matchedTarget?.[1]) {
+      return null;
+    }
+    target = matchedTarget[1].trim();
+    remainder = trimmed.slice(matchedTarget[1].length).trim();
+  }
+
+  if (!target) {
+    return null;
+  }
+
+  let title = "";
+  if (remainder.length > 1) {
+    const marker = remainder[0];
+    if (marker === "\"" || marker === "'" || marker === "(") {
+      const expectedClosing = marker === "(" ? ")" : marker;
+      if (remainder.endsWith(expectedClosing)) {
+        title = remainder.slice(1, -1).trim();
+      }
+    }
+  }
+
+  return {
+    target,
+    title,
+  } satisfies ReferenceLinkDefinition;
+}
+
+function parseReferenceLinkDefinitions(markdown: string) {
+  const definitions = new Map<string, ReferenceLinkDefinition>();
+  const lines = markdown.split(/\r?\n/);
+
+  for (const line of lines) {
+    const matched = line.match(/^\s{0,3}\[([^\]\n]+)\]:\s*(.+)\s*$/);
+    if (!matched?.[1] || !matched[2]) {
+      continue;
+    }
+
+    const key = normalizeReferenceLinkKey(matched[1]);
+    const parsed = parseReferenceLinkTargetAndTitle(matched[2]);
+    if (!key || !parsed) {
+      continue;
+    }
+
+    definitions.set(key, parsed);
+  }
+
+  return definitions;
 }
 
 function safeDecodeURIComponent(value: string) {
@@ -858,54 +935,6 @@ function createHtmlElement(
     return buildFootnotesFooterHtml(toHtml(children));
   }
 
-  if (tag === "a") {
-    const href = String(props.href || "").trim();
-    const className = String(props.className || props.class || "");
-    const excludedClasses = [
-      "mori-link-card-grid",
-      "mori-heading-anchor",
-      "mori-footnote-link",
-      "mori-footnote-backref",
-      "mori-mention",
-    ];
-    const shouldExclude =
-      href.startsWith("#") || excludedClasses.some((item) => className.includes(item));
-
-    if (!shouldExclude) {
-      const rawChildHtml = toHtml(children);
-      const hasMediaChild = /<(img|svg|picture|video|iframe)\b/i.test(rawChildHtml);
-      if (!hasMediaChild) {
-        const hasNestedAnchor = /<a\b/i.test(rawChildHtml);
-        const childHtml = hasNestedAnchor
-          ? (() => {
-              const withoutArrowSpans = rawChildHtml.replace(
-                /<span[^>]*class="[^"]*\bmori-link-arrow\b[^"]*"[^>]*>[\s\S]*?<\/span>/gi,
-                "",
-              );
-              const plainText = decodeHtmlEntities(withoutArrowSpans.replace(/<[^>]+>/g, ""))
-                .replace(/[↗↖↘↙]+\s*$/g, "")
-                .trim();
-              return escapeAttributeValue(plainText || href);
-            })()
-          : rawChildHtml;
-        const nextClass = `${className} mori-inline-link`.trim();
-        const nextProps: Record<string, unknown> = { ...props, className: nextClass };
-        const attributes = Object.entries(nextProps)
-          .filter(([key, value]) => key !== "key" && value !== null && value !== undefined && value !== false)
-          .map(([key, value]) => {
-            const normalizedKey = key === "className" ? "class" : key;
-            if (value === true) {
-              return normalizedKey;
-            }
-            return `${normalizedKey}="${escapeAttributeValue(String(value))}"`;
-          })
-          .join(" ");
-        const openTag = attributes.length > 0 ? `<a ${attributes}>` : "<a>";
-        return `${openTag}<span class="mori-link-text">${childHtml}</span><span class="mori-link-arrow" aria-hidden="true">↗</span></a>`;
-      }
-    }
-  }
-
   const attributes = Object.entries(props)
     .filter(([key, value]) => key !== "key" && value !== null && value !== undefined && value !== false)
     .map(([key, value]) => {
@@ -1157,6 +1186,77 @@ const markdownOptions: MarkdownToJSX.Options = {
   },
   createElement: createHtmlElement,
   extendsRules: {
+    link: {
+      react(node, output, state) {
+        const target = String(node.target || "").trim();
+        const safeTarget = sanitizeUrl(target) || "";
+        const title = String(node.title || "");
+        const labelText = extractTextFromMarkdownNode(node.content).trim();
+        const labelHtml = toHtml(output(node.content, state));
+
+        if (!safeTarget) {
+          return labelText;
+        }
+
+        const parsed = parseUrlSafe(safeTarget);
+        const isExternal = Boolean(parsed && /^(https?:|mailto:|tel:)/i.test(safeTarget));
+        const attrs = [
+          `href="${escapeAttributeValue(safeTarget)}"`,
+          `class="mori-inline-link"`,
+          title ? `title="${escapeAttributeValue(title)}"` : "",
+          isExternal ? `target="_blank"` : "",
+          isExternal ? `rel="noopener noreferrer"` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        const safeLabel = /<a\b/i.test(labelHtml)
+          ? escapeAttributeValue(decodeHtmlEntities(labelHtml.replace(/<[^>]+>/g, "")).trim() || safeTarget)
+          : labelHtml || escapeAttributeValue(safeTarget);
+
+        return `<a ${attrs}><span class="mori-link-text">${safeLabel}</span></a>`;
+      },
+    },
+    refLink: {
+      react(node, output, state) {
+        const labelText = extractTextFromMarkdownNode(node.content).trim();
+        const labelHtml = toHtml(output(node.content, state));
+        const refRaw = String(node.ref || "").trim();
+        const lookupKey = normalizeReferenceLinkKey(refRaw || labelText);
+        const definition = activeReferenceLinkDefinitions.get(lookupKey);
+
+        if (!definition) {
+          const fallbackContent = (node as { fallbackContent?: unknown }).fallbackContent;
+          if (fallbackContent) {
+            return toHtml(output(fallbackContent as never, state));
+          }
+          return labelText || "";
+        }
+
+        const safeTarget = sanitizeUrl(definition.target) || "";
+        if (!safeTarget) {
+          return labelText;
+        }
+
+        const parsed = parseUrlSafe(safeTarget);
+        const isExternal = Boolean(parsed && /^(https?:|mailto:|tel:)/i.test(safeTarget));
+        const attrs = [
+          `href="${escapeAttributeValue(safeTarget)}"`,
+          `class="mori-inline-link"`,
+          definition.title ? `title="${escapeAttributeValue(definition.title)}"` : "",
+          isExternal ? `target="_blank"` : "",
+          isExternal ? `rel="noopener noreferrer"` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        const safeLabel = /<a\b/i.test(labelHtml)
+          ? escapeAttributeValue(decodeHtmlEntities(labelHtml.replace(/<[^>]+>/g, "")).trim() || safeTarget)
+          : labelHtml || escapeAttributeValue(safeTarget);
+
+        return `<a ${attrs}><span class="mori-link-text">${safeLabel}</span></a>`;
+      },
+    },
     paragraph: {
       react(node, output, state) {
         const content = Array.isArray(node.content) ? node.content : [];
@@ -1240,7 +1340,16 @@ export async function renderMarkdownToHtml(rawMarkdown: string) {
     return "";
   }
 
-  const rawHtml = toHtml(compiler(source, markdownOptions));
+  const previousReferenceLinkDefinitions = activeReferenceLinkDefinitions;
+  activeReferenceLinkDefinitions = parseReferenceLinkDefinitions(source);
+
+  let rawHtml = "";
+  try {
+    rawHtml = toHtml(compiler(source, markdownOptions));
+  } finally {
+    activeReferenceLinkDefinitions = previousReferenceLinkDefinitions;
+  }
+
   const highlightedHtml = await applyShikiHighlight(rawHtml);
   return applyRichLinkPreview(highlightedHtml);
 }

@@ -221,17 +221,20 @@ export async function prepareArticleContent(rawContent: string | undefined) {
   const tocItems: TocItem[] = [];
   let index = 0;
 
-  const htmlWithHeadingIds = cleaned.replace(/<h([2-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (_, level, attrs, inner) => {
+  const htmlWithHeadingIds = cleaned.replace(/<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (_, level, attrs, inner) => {
     index += 1;
     const text = stripHtml(inner);
     const base = slugifyHeading(text);
     const id = `${base}-${index}`;
+    const headingLevel = Number(level);
 
-    tocItems.push({
-      id,
-      text,
-      level: Number(level),
-    });
+    if (headingLevel >= 1) {
+      tocItems.push({
+        id,
+        text,
+        level: headingLevel,
+      });
+    }
 
     const attrsWithoutId = String(attrs).replace(/\sid\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, "");
     return `<h${level}${attrsWithoutId} id="${id}" data-markdown-heading="true">${inner}<a class="mori-heading-anchor" href="#${id}" aria-label="章节链接">#</a></h${level}>`;
