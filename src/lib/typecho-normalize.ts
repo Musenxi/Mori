@@ -16,6 +16,33 @@ const FULL_DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   weekday: "long",
 });
 
+function decodeHtmlEntities(input: string) {
+  const namedEntities: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: "\"",
+    apos: "'",
+    nbsp: " ",
+  };
+
+  return input.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (full, entityRaw: string) => {
+    const entity = entityRaw.toLowerCase();
+
+    if (entity.startsWith("#x")) {
+      const parsed = Number.parseInt(entity.slice(2), 16);
+      return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : full;
+    }
+
+    if (entity.startsWith("#")) {
+      const parsed = Number.parseInt(entity.slice(1), 10);
+      return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : full;
+    }
+
+    return namedEntities[entity] ?? full;
+  });
+}
+
 function buildGravatarUrl(mailHash?: string) {
   const hash = mailHash?.trim();
   if (!hash) {
@@ -53,11 +80,13 @@ export function stripHtml(html: string | undefined) {
   if (!html) {
     return "";
   }
-  return html
+  const withoutTags = html
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
+    .replace(/<[^>]+>/g, "");
+
+  return decodeHtmlEntities(withoutTags)
+    .replace(/\u00a0/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -164,6 +193,7 @@ export function normalizePost(raw: TypechoPostRaw): NormalizedPost {
   const html = typeof raw.text === "string" ? raw.text : undefined;
   const brief = findField(raw, ["brief"]);
   const excerpt = stripHtml(brief);
+  const title = decodeHtmlEntities(typeof raw.title === "string" ? raw.title : "");
 
   const coverField = findField(raw, [
     "banner",
@@ -178,7 +208,7 @@ export function normalizePost(raw: TypechoPostRaw): NormalizedPost {
   return {
     cid: Number(raw.cid),
     slug: raw.slug,
-    title: raw.title,
+    title,
     permalink: typeof raw.permalink === "string" ? raw.permalink : undefined,
     created,
     createdLabel: formatFullDate(created),

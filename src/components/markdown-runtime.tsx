@@ -130,7 +130,6 @@ async function resolveExcalidrawInitialData(source: string) {
 }
 
 function positionExcalidrawPortal(portal: HTMLElement, host: HTMLElement) {
-  const viewportHeight = window.innerHeight;
   const rect = host.getBoundingClientRect();
   portal.style.position = "fixed";
   portal.style.top = `${rect.top}px`;
@@ -207,7 +206,20 @@ export function MarkdownRuntime() {
   useEffect(() => {
     const excalidrawRoots = new Map<HTMLElement, Root>();
     const excalidrawHostCleanups = new Map<HTMLElement, () => void>();
+    const pendingRootUnmounts = new Set<Root>();
     let disposed = false;
+
+    const scheduleRootUnmount = (root: Root) => {
+      if (pendingRootUnmounts.has(root)) {
+        return;
+      }
+
+      pendingRootUnmounts.add(root);
+      window.setTimeout(() => {
+        pendingRootUnmounts.delete(root);
+        root.unmount();
+      }, 0);
+    };
 
     const mountExcalidrawNode = async (node: HTMLElement) => {
       if (disposed || excalidrawRoots.has(node)) {
@@ -286,7 +298,7 @@ export function MarkdownRuntime() {
     const cleanupRemovedExcalidraw = () => {
       excalidrawRoots.forEach((root, node) => {
         if (!document.contains(node)) {
-          root.unmount();
+          scheduleRootUnmount(root);
           excalidrawRoots.delete(node);
           excalidrawHostCleanups.get(node)?.();
           excalidrawHostCleanups.delete(node);
@@ -434,7 +446,7 @@ export function MarkdownRuntime() {
       disposed = true;
       observer.disconnect();
       excalidrawRoots.forEach((root) => {
-        root.unmount();
+        scheduleRootUnmount(root);
       });
       excalidrawHostCleanups.forEach((cleanup) => cleanup());
       excalidrawHostCleanups.clear();

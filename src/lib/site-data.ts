@@ -356,7 +356,7 @@ function createAdjacentMap(posts: NormalizedPost[], currentCid: number) {
   };
 }
 
-function buildSideNavigationPosts(posts: NormalizedPost[], currentCid: number, limit = 10) {
+function buildSideNavigationPosts(posts: NormalizedPost[], currentCid: number, limit = 9) {
   if (limit <= 0) {
     return [] as NormalizedPost[];
   }
@@ -367,19 +367,23 @@ function buildSideNavigationPosts(posts: NormalizedPost[], currentCid: number, l
   }
 
   const currentIndex = sorted.findIndex((item) => item.cid === currentCid);
-  const dynamicLimitMap = [5, 6, 7, 8, 9];
-  const dynamicLimit = currentIndex >= 0
-    ? dynamicLimitMap[Math.min(currentIndex, dynamicLimitMap.length - 1)]
-    : limit;
-  const finalLimit = Math.min(limit, dynamicLimit, sorted.length);
-
-  const top = sorted.slice(0, finalLimit);
-  if (currentIndex === -1 || top.some((item) => item.cid === currentCid)) {
-    return top;
+  if (currentIndex === -1) {
+    return sorted.slice(0, limit);
   }
 
-  const current = sorted[currentIndex];
-  return [...top.slice(0, finalLimit - 1), current].sort((a, b) => b.created - a.created);
+  const halfWindow = Math.floor((limit - 1) / 2);
+  let start = currentIndex - halfWindow;
+  let end = start + limit;
+
+  if (start < 0) {
+    start = 0;
+    end = limit;
+  } else if (end > sorted.length) {
+    end = sorted.length;
+    start = Math.max(0, end - limit);
+  }
+
+  return sorted.slice(start, end);
 }
 
 function findColumnInfo(post: NormalizedPost, columns: ColumnInfo[]) {
@@ -431,7 +435,7 @@ export async function getPostDetailData(
   const article = await prepareArticleContent(post.html);
   const allPosts = flattenArchives(archives);
   const adjacent = createAdjacentMap(allPosts, post.cid);
-  const sideNavigationPosts = buildSideNavigationPosts(allPosts, post.cid, 10);
+  const sideNavigationPosts = buildSideNavigationPosts(allPosts, post.cid, 9);
   const columns = buildColumnsFromColumnCategory(categories, allPosts);
 
   const rawFields = rawPost.fields ?? {};
