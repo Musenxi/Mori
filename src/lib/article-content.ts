@@ -60,6 +60,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     "sub",
     "details",
     "summary",
+    "cite",
     "footer",
     "button",
     "iframe",
@@ -170,7 +171,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
         type: "checkbox",
       };
 
-      if (attribs.checked) {
+      if (Object.prototype.hasOwnProperty.call(attribs, "checked")) {
         inputAttributes.checked = "checked";
       }
 

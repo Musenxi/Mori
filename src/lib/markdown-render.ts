@@ -75,6 +75,8 @@ type ReferenceLinkDefinition = {
 
 let tabsInstanceCount = 0;
 let activeReferenceLinkDefinitions = new Map<string, ReferenceLinkDefinition>();
+const DOC_HEAD_GUARD_ID = "73b9050e";
+const DOC_HEAD_GUARD_HTML = `<div data-mori-doc-guard="${DOC_HEAD_GUARD_ID}"></div>`;
 
 function toHtml(value: unknown): string {
   if (Array.isArray(value)) {
@@ -95,6 +97,25 @@ function escapeAttributeValue(value: string) {
     .replace(/'/g, "&#39;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function toKebabCase(value: string) {
+  return value.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+}
+
+function styleValueToString(value: unknown) {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+
+  return Object.entries(value as Record<string, unknown>)
+    .filter(([, item]) => item !== null && item !== undefined && item !== "")
+    .map(([key, item]) => `${toKebabCase(key)}:${String(item)}`)
+    .join(";");
 }
 
 function parseFilenameFromAttrs(attrs: string) {
@@ -939,11 +960,19 @@ function createHtmlElement(
     .filter(([key, value]) => key !== "key" && value !== null && value !== undefined && value !== false)
     .map(([key, value]) => {
       const normalizedKey = key === "className" ? "class" : key;
+      if (normalizedKey === "style") {
+        const styleText = styleValueToString(value);
+        if (!styleText) {
+          return "";
+        }
+        return `style="${escapeAttributeValue(styleText)}"`;
+      }
       if (value === true) {
         return normalizedKey;
       }
       return `${normalizedKey}="${escapeAttributeValue(String(value))}"`;
     })
+    .filter(Boolean)
     .join(" ");
 
   const openTag = attributes.length > 0 ? `<${tag} ${attributes}>` : `<${tag}>`;
@@ -1340,15 +1369,25 @@ export async function renderMarkdownToHtml(rawMarkdown: string) {
     return "";
   }
 
+  // @innei/markdown-to-jsx has a block-parsing edge case at document start
+  // (the first list/hr block may not be recognized). We prepend a guard node
+  // and remove only that exact leading node after compile.
+  const compileSource = `${DOC_HEAD_GUARD_HTML}\n\n${source}`;
+
   const previousReferenceLinkDefinitions = activeReferenceLinkDefinitions;
   activeReferenceLinkDefinitions = parseReferenceLinkDefinitions(source);
 
   let rawHtml = "";
   try {
-    rawHtml = toHtml(compiler(source, markdownOptions));
+    rawHtml = toHtml(compiler(compileSource, markdownOptions));
   } finally {
     activeReferenceLinkDefinitions = previousReferenceLinkDefinitions;
   }
+
+  rawHtml = rawHtml.replace(
+    new RegExp(`^<div data-mori-doc-guard="${DOC_HEAD_GUARD_ID}"><\\/div>`),
+    "",
+  );
 
   const highlightedHtml = await applyShikiHighlight(rawHtml);
   return applyRichLinkPreview(highlightedHtml);
