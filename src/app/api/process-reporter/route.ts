@@ -13,11 +13,53 @@ import {
   ProcessReporterStatusResponse,
   ProcessReporterStatusSnapshot,
 } from "@/lib/process-reporter-types";
+import { getUserByUid } from "@/lib/typecho-client";
 
 export const runtime = "nodejs";
 
 const PROCESS_REPORTER_UPDATED_EVENT = "process-reporter:updated";
 const PROCESS_REPORTER_SOCKET_ROOM = "process-reporter:watchers";
+const SITE_OWNER_UID = parsePositiveInt(
+  process.env.TYPECHO_SITE_OWNER_UID ?? process.env.TYPECHO_COMMENT_OWNER_ID,
+  1,
+);
+const OWNER_NAME_CACHE_SECONDS = parsePositiveInt(process.env.TYPECHO_OWNER_REVALIDATE_SECONDS, 600);
+
+let ownerNameCache: {
+  name: string;
+  expiresAt: number;
+} | null = null;
+
+function parsePositiveInt(raw: string | undefined, fallback: number) {
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+async function getSiteOwnerName() {
+  const now = Date.now();
+  if (ownerNameCache && ownerNameCache.expiresAt > now) {
+    return ownerNameCache.name;
+  }
+
+  const owner = await getUserByUid(SITE_OWNER_UID, OWNER_NAME_CACHE_SECONDS);
+  const fallback = ownerNameCache?.name || "站长";
+  const resolved = typeof owner?.name === "string" && owner.name.trim() ? owner.name.trim() : fallback;
+
+  ownerNameCache = {
+    name: resolved,
+    expiresAt: now + OWNER_NAME_CACHE_SECONDS * 1000,
+  };
+
+  return resolved;
+}
 
 function toJson(data: ProcessReporterStatusResponse | { ok: boolean; message: string }, status = 200) {
   return NextResponse.json(data, {
@@ -76,6 +118,7 @@ function hasReadableStatus(snapshot: ProcessReporterStatusSnapshot) {
 }
 
 export async function GET() {
+  const ownerName = await getSiteOwnerName();
   const enabled = isProcessReporterEnabled();
   if (!enabled) {
     return toJson({
@@ -83,6 +126,8 @@ export async function GET() {
       data: null,
       stale: true,
       enabled: false,
+      ownerUid: SITE_OWNER_UID,
+      ownerName,
     });
   }
 
@@ -94,6 +139,8 @@ export async function GET() {
     data: snapshot ?? null,
     stale,
     enabled: true,
+    ownerUid: SITE_OWNER_UID,
+    ownerName,
   });
 }
 
@@ -156,11 +203,14 @@ export async function POST(request: NextRequest) {
 
   await saveProcessReporterSnapshot(snapshot);
   await emitProcessReporterUpdated(request, snapshot);
+  const ownerName = await getSiteOwnerName();
 
   return toJson({
     ok: true,
     data: snapshot,
     stale: false,
     enabled: true,
+    ownerUid: SITE_OWNER_UID,
+    ownerName,
   });
 }

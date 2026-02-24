@@ -28,4 +28,6 @@ export interface ProcessReporterStatusResponse {
   data: ProcessReporterStatusSnapshot | null;
   stale: boolean;
   enabled: boolean;
+  ownerUid?: number;
+  ownerName?: string;
 }

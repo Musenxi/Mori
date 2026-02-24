@@ -13,6 +13,8 @@ import {
   TypechoPostRaw,
   TypechoPostsResponse,
   TypechoSettings,
+  TypechoUser,
+  TypechoUsersResponse,
 } from "./typecho-types";
 import { getRedisJson, setRedisJson } from "./redis-client";
 
@@ -282,6 +284,26 @@ async function requestTypechoWithSetCookie<T>(
 
 export async function getSettings(): Promise<TypechoSettings> {
   return requestTypecho<TypechoSettings>("settings");
+}
+
+export async function getUserByUid(
+  uid: number,
+  revalidate: number | false = 600,
+): Promise<TypechoUser | null> {
+  const normalizedUid = Number(uid);
+  if (!Number.isFinite(normalizedUid) || normalizedUid <= 0) {
+    return null;
+  }
+
+  try {
+    const result = await requestTypecho<TypechoUsersResponse>("users", {
+      query: { uid: Math.floor(normalizedUid) },
+      revalidate,
+    });
+    return Array.isArray(result.dataSet) && result.dataSet.length > 0 ? result.dataSet[0] : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getPages(): Promise<TypechoPageItem[]> {

@@ -51,6 +51,7 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
   const [snapshot, setSnapshot] = useState<ProcessReporterStatusSnapshot | null>(null);
   const [stale, setStale] = useState(true);
   const [featureEnabled, setFeatureEnabled] = useState(true);
+  const [ownerName, setOwnerName] = useState("站长");
   const [mediaActive, setMediaActive] = useState(viewport === "any");
   const active = viewport === "any" ? true : mediaActive;
 
@@ -122,6 +123,12 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
           return false;
         }
 
+        const nextOwnerName =
+          typeof payload.ownerName === "string" && payload.ownerName.trim()
+            ? payload.ownerName.trim()
+            : "站长";
+        setOwnerName(nextOwnerName);
+
         if (!payload.enabled) {
           setFeatureEnabled(false);
           applySnapshot(null);
@@ -186,18 +193,30 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
   }, [active]);
 
   const text = useMemo(() => formatProcessReporterStatus(snapshot, stale), [snapshot, stale]);
+  const tooltip = `${ownerName}正在使用：${text}`;
 
   if (!featureEnabled) {
     return null;
   }
 
   return (
-    <span className="inline-flex max-w-[380px] items-center gap-1.5 truncate font-sans text-xs tracking-[0.4px] text-secondary/85">
+    <span
+      className="group relative inline-flex max-w-[380px] items-center gap-1.5 font-sans text-xs tracking-[0.4px] text-secondary/85"
+      title={tooltip}
+      aria-label={tooltip}
+      tabIndex={0}
+    >
       <span
         className={`h-1.5 w-1.5 rounded-full ${stale ? "bg-secondary/45" : "bg-emerald-500"}`}
         aria-hidden
       />
       <span className="truncate">{text}</span>
+      <span
+        className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-[70] w-max max-w-[min(420px,70vw)] -translate-x-1/2 rounded-md border border-border bg-bg/95 px-2 py-1 text-[11px] leading-tight text-primary opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+        role="tooltip"
+      >
+        {tooltip}
+      </span>
     </span>
   );
 }

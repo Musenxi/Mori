@@ -94,6 +94,20 @@ export interface TypechoSettings {
   [key: string]: unknown;
 }
 
+export interface TypechoUser {
+  uid: number;
+  name: string;
+  mailHash?: string;
+  url?: string;
+  count?: number;
+  posts?: TypechoPostRaw[];
+}
+
+export interface TypechoUsersResponse {
+  count: number;
+  dataSet: TypechoUser[];
+}
+
 export interface TypechoPageItem {
   cid: number;
   title: string;
