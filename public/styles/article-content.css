@@ -233,18 +233,27 @@
 .prose-article .mori-callout {
   margin-top: 24px;
   border-left: 3px solid var(--border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--tag) 72%, transparent);
-  padding: 16px 18px;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 16px;
 }
 
 .prose-article .mori-callout-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-family: var(--font-inter), "PingFang SC", "Hiragino Sans GB", sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.5;
+}
+
+.prose-article .mori-callout-icon {
+  flex-shrink: 0;
+  fill: currentColor;
 }
 
 .prose-article .mori-callout-content {
@@ -259,24 +268,122 @@
   margin-top: 14px;
 }
 
+.prose-article .mori-callout-content p {
+  font-family: var(--font-inter), "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-size: 15px;
+  white-space: normal;
+}
+
 .prose-article .mori-callout-note {
-  border-left-color: #3a7df0;
+  border-left-color: #1f6feb;
+}
+
+.prose-article .mori-callout-note .mori-callout-title {
+  color: #1f6feb;
+}
+
+.prose-article .mori-callout-tip {
+  border-left-color: #1a7f37;
+}
+
+.prose-article .mori-callout-tip .mori-callout-title {
+  color: #1a7f37;
 }
 
 .prose-article .mori-callout-important {
-  border-left-color: #8c5df0;
+  border-left-color: #8957e5;
+}
+
+.prose-article .mori-callout-important .mori-callout-title {
+  color: #8957e5;
 }
 
 .prose-article .mori-callout-warning {
-  border-left-color: #d5921b;
+  border-left-color: #9a6700;
+}
+
+.prose-article .mori-callout-warning .mori-callout-title {
+  color: #9a6700;
+}
+
+.prose-article .mori-callout-caution {
+  border-left-color: #cf222e;
+}
+
+.prose-article .mori-callout-caution .mori-callout-title {
+  color: #cf222e;
 }
 
 .prose-article .mori-callout-success {
-  border-left-color: #29965c;
+  border-left-color: #1a7f37;
+}
+
+.prose-article .mori-callout-success .mori-callout-title {
+  color: #1a7f37;
 }
 
 .prose-article .mori-callout-error {
-  border-left-color: #d04a4a;
+  border-left-color: #cf222e;
+}
+
+.prose-article .mori-callout-error .mori-callout-title {
+  color: #cf222e;
+}
+
+.dark .prose-article .mori-callout-note {
+  border-left-color: #4493f8;
+}
+
+.dark .prose-article .mori-callout-note .mori-callout-title {
+  color: #4493f8;
+}
+
+.dark .prose-article .mori-callout-tip {
+  border-left-color: #3fb950;
+}
+
+.dark .prose-article .mori-callout-tip .mori-callout-title {
+  color: #3fb950;
+}
+
+.dark .prose-article .mori-callout-important {
+  border-left-color: #ab7df8;
+}
+
+.dark .prose-article .mori-callout-important .mori-callout-title {
+  color: #ab7df8;
+}
+
+.dark .prose-article .mori-callout-warning {
+  border-left-color: #d29922;
+}
+
+.dark .prose-article .mori-callout-warning .mori-callout-title {
+  color: #d29922;
+}
+
+.dark .prose-article .mori-callout-caution {
+  border-left-color: #f85149;
+}
+
+.dark .prose-article .mori-callout-caution .mori-callout-title {
+  color: #f85149;
+}
+
+.dark .prose-article .mori-callout-success {
+  border-left-color: #3fb950;
+}
+
+.dark .prose-article .mori-callout-success .mori-callout-title {
+  color: #3fb950;
+}
+
+.dark .prose-article .mori-callout-error {
+  border-left-color: #f85149;
+}
+
+.dark .prose-article .mori-callout-error .mori-callout-title {
+  color: #f85149;
 }
 
 .prose-article .mori-container {

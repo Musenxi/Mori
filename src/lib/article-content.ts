@@ -92,10 +92,14 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     "menclose",
     "mpadded",
     "mphantom",
+    "svg",
+    "path",
   ],
   allowedAttributes: {
     a: ["href", "title", "target", "rel"],
     img: ["src", "alt", "title", "width", "height", "loading", "class", "aria-hidden"],
+    svg: ["class", "viewBox", "width", "height", "aria-hidden", "fill"],
+    path: ["d", "fill", "fill-rule", "clip-rule"],
     iframe: [
       "src",
       "title",
