@@ -701,6 +701,7 @@ a {
 
 .prose-article .mori-code-block {
   margin-top: 24px;
+  margin-bottom: 24px;
   overflow: hidden;
   border-radius: 8px;
   border: 1px solid var(--border);
