@@ -202,7 +202,6 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
   return (
     <span
       className="group relative inline-flex max-w-[380px] items-center gap-1.5 font-sans text-xs tracking-[0.4px] text-secondary/85"
-      title={tooltip}
       aria-label={tooltip}
       tabIndex={0}
     >
