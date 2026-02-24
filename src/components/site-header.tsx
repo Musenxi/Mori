@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 
+import { SiteHeaderStatusDesktop, SiteHeaderStatusMobile } from "@/components/site-header-status";
 import { cn } from "@/lib/cn";
 
 export interface NavItem {
@@ -144,9 +145,12 @@ export function SiteHeader({ blogTitle, navItems, mobileArticleMode = false }: S
   return (
     <>
       <header className="hidden w-full items-center justify-between px-[60px] py-6 md:flex">
-        <Link href="/" className="font-serif-cn text-[22px] tracking-[4px] text-primary transition-opacity hover:opacity-70">
-          {blogTitle}
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="font-serif-cn text-[22px] tracking-[4px] text-primary transition-opacity hover:opacity-70">
+            {blogTitle}
+          </Link>
+          <SiteHeaderStatusDesktop />
+        </div>
 
         <div className="flex items-center gap-12">
           <nav className="flex items-center gap-8">{navNode}</nav>
@@ -161,9 +165,12 @@ export function SiteHeader({ blogTitle, navItems, mobileArticleMode = false }: S
         )}
       >
         <div className="flex items-center justify-between">
-          <Link href="/" className="font-serif-cn text-[22px] tracking-[4px] text-primary transition-opacity hover:opacity-70">
-            {blogTitle}
-          </Link>
+          <div className="flex min-w-0 items-center gap-2">
+            <Link href="/" className="font-serif-cn text-[22px] tracking-[4px] text-primary transition-opacity hover:opacity-70">
+              {blogTitle}
+            </Link>
+            <SiteHeaderStatusMobile />
+          </div>
 
           <div className="flex items-center gap-4">
             {mobileArticleMode ? (

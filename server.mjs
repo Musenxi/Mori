@@ -14,6 +14,7 @@ const SOCKET_INTERNAL_TOKEN = process.env.SOCKET_INTERNAL_TOKEN?.trim() || "mori
 const INTERNAL_BROADCAST_PATH = "/internal/socket-broadcast";
 const PRESENCE_ONLINE_EVENT = "presence:online";
 const PRESENCE_POST_READING_EVENT = "presence:post-reading";
+const PROCESS_REPORTER_SOCKET_ROOM = "process-reporter:watchers";
 
 function normalizePostTarget(rawPayload) {
   if (!rawPayload || typeof rawPayload !== "object") {
@@ -240,6 +241,14 @@ app
         socket.data.presenceRoom = null;
         socket.data.presenceTarget = null;
         emitPostReadingPresence(io, currentRoom, currentTarget);
+      });
+
+      socket.on("process-reporter:watch", () => {
+        socket.join(PROCESS_REPORTER_SOCKET_ROOM);
+      });
+
+      socket.on("process-reporter:unwatch", () => {
+        socket.leave(PROCESS_REPORTER_SOCKET_ROOM);
       });
 
       socket.on("disconnect", () => {

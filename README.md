@@ -128,6 +128,42 @@ Socket.IO 实时同步：
 - Footer：`正在被X人看爆`（全站在线人数）
 - 文章页元信息区（点赞后）：`X人正在阅读`（当前文章在线阅读人数）
 
+ProcessReporterMac 接入：
+
+- ProcessReporterMac 是“主动上报”模式，不是拉取模式。
+- 客户端会按间隔向你配置的 Endpoint 发送 `POST JSON`，字段包含：
+- `timestamp`
+- `key`
+- `process`
+- `media.title` / `media.artist`
+- `meta.description`
+- Mori 已提供接口：
+- `POST /api/process-reporter`：接收 ProcessReporterMac 上报
+- `GET /api/process-reporter`：返回当前最新状态（Header 用）
+- Header 右侧状态通过 Socket 事件 `process-reporter:updated` 被动实时更新（无前端轮询刷新）。
+
+ProcessReporterMac 相关环境变量：
+
+```bash
+# 总开关：1 开启，0 关闭（关闭后 Header 不显示状态，POST 上报会返回 403）
+PROCESS_REPORTER_ENABLED="1"
+
+# 与 ProcessReporterMac 设置中的 API Key 保持一致（必填）
+PROCESS_REPORTER_API_KEY="replace-with-your-own-key"
+
+# 状态写入 Redis 的 TTL（秒）
+PROCESS_REPORTER_STATUS_TTL_SECONDS="3600"
+
+# 多久无新上报视为离线（秒）
+PROCESS_REPORTER_STALE_SECONDS="180"
+```
+
+ProcessReporterMac 客户端配置建议：
+
+- API Key：`PROCESS_REPORTER_API_KEY` 的值
+- Endpoint：`https://你的域名/api/process-reporter`
+- Update Interval：建议 `15~60s`
+
 Redis 缓存范围（Mori）：
 
 - 仅缓存 Typecho API 的 GET 请求，且 `revalidate !== false` 的请求会落 Redis。
