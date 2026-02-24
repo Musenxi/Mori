@@ -67,6 +67,8 @@ type LinkPreview = {
   title: string;
   description: string;
   image: string;
+  githubStars?: number;
+  githubDiffStats?: { additions: number; deletions: number };
 };
 type ReferenceLinkDefinition = {
   target: string;
@@ -566,7 +568,198 @@ function getGitHubAvatarUrl(url: URL) {
   return `https://github.com/${encodeURIComponent(owner)}.png?size=96`;
 }
 
-function buildFallbackCardMeta(target: string, label: string) {
+function getGitHubRepoFromUrl(url: URL): { owner: string; repo: string } | null {
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host !== "github.com") {
+    return null;
+  }
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (segments.length < 2) {
+    return null;
+  }
+  const owner = segments[0] || "";
+  const repo = (segments[1] || "").replace(/\.git$/, "");
+  if (!owner || !repo || !/^[a-z0-9._-]+$/i.test(owner) || !/^[a-z0-9._-]+$/i.test(repo)) {
+    return null;
+  }
+  return { owner, repo };
+}
+
+const githubStarsCache = new Map<string, Promise<number | null>>();
+
+async function fetchGitHubStars(owner: string, repo: string): Promise<number | null> {
+  const key = `${owner}/${repo}`.toLowerCase();
+  const cached = githubStarsCache.get(key);
+  if (cached) {
+    return cached;
+  }
+
+  const job = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const headers: Record<string, string> = {
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "MoriBot/1.0",
+      };
+      const ghToken = process.env.GITHUB_TOKEN;
+      if (ghToken) {
+        headers.Authorization = `Bearer ${ghToken}`;
+      }
+      const res = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, {
+        signal: controller.signal,
+        headers,
+      });
+      if (!res.ok) {
+        return null;
+      }
+      const data = (await res.json()) as { stargazers_count?: number };
+      return typeof data.stargazers_count === "number" ? data.stargazers_count : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  })();
+
+  githubStarsCache.set(key, job);
+  return job;
+}
+
+function formatStarCount(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  }
+  return String(count);
+}
+
+function getGitHubCommitFromUrl(url: URL): { owner: string; repo: string; sha: string } | null {
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host !== "github.com") {
+    return null;
+  }
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (segments.length < 4 || segments[2] !== "commit") {
+    return null;
+  }
+  const owner = segments[0];
+  const repo = segments[1];
+  const sha = segments[3];
+  if (!owner || !repo || !sha || !/^[a-f0-9]{7,40}$/i.test(sha)) {
+    return null;
+  }
+  return { owner, repo, sha };
+}
+
+function getGitHubPullFromUrl(url: URL): { owner: string; repo: string; number: number } | null {
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host !== "github.com") {
+    return null;
+  }
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (segments.length < 4 || segments[2] !== "pull") {
+    return null;
+  }
+  const owner = segments[0];
+  const repo = segments[1];
+  const prNum = parseInt(segments[3], 10);
+  if (!owner || !repo || !Number.isFinite(prNum) || prNum <= 0) {
+    return null;
+  }
+  return { owner, repo, number: prNum };
+}
+
+const githubDiffStatsCache = new Map<string, Promise<{ additions: number; deletions: number } | null>>();
+
+function buildGitHubHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "MoriBot/1.0",
+  };
+  const ghToken = process.env.GITHUB_TOKEN;
+  if (ghToken) {
+    headers.Authorization = `Bearer ${ghToken}`;
+  }
+  return headers;
+}
+
+async function fetchGitHubCommitStats(
+  owner: string,
+  repo: string,
+  sha: string,
+): Promise<{ additions: number; deletions: number } | null> {
+  const key = `commit:${owner}/${repo}/${sha}`.toLowerCase();
+  const cached = githubDiffStatsCache.get(key);
+  if (cached) {
+    return cached;
+  }
+
+  const job = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(sha)}`,
+        { signal: controller.signal, headers: buildGitHubHeaders() },
+      );
+      if (!res.ok) {
+        return null;
+      }
+      const data = (await res.json()) as { stats?: { additions?: number; deletions?: number } };
+      if (!data.stats || typeof data.stats.additions !== "number" || typeof data.stats.deletions !== "number") {
+        return null;
+      }
+      return { additions: data.stats.additions, deletions: data.stats.deletions };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  })();
+
+  githubDiffStatsCache.set(key, job);
+  return job;
+}
+
+async function fetchGitHubPullStats(
+  owner: string,
+  repo: string,
+  prNumber: number,
+): Promise<{ additions: number; deletions: number } | null> {
+  const key = `pr:${owner}/${repo}/${prNumber}`.toLowerCase();
+  const cached = githubDiffStatsCache.get(key);
+  if (cached) {
+    return cached;
+  }
+
+  const job = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${prNumber}`,
+        { signal: controller.signal, headers: buildGitHubHeaders() },
+      );
+      if (!res.ok) {
+        return null;
+      }
+      const data = (await res.json()) as { additions?: number; deletions?: number };
+      if (typeof data.additions !== "number" || typeof data.deletions !== "number") {
+        return null;
+      }
+      return { additions: data.additions, deletions: data.deletions };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  })();
+
+  githubDiffStatsCache.set(key, job);
+  return job;
+}
+
+function buildFallbackCardMeta(target: string, label: string): LinkPreview {
   const url = parseUrlSafe(target);
   if (!url) {
     return {
@@ -667,12 +860,47 @@ async function fetchLinkPreview(target: string, label: string): Promise<LinkPrev
         toAbsoluteUrl(iconHref, finalUrl) ||
         `https://www.google.com/s2/favicons?domain=${encodeURIComponent(finalParsed.hostname)}&sz=64`;
 
+      const ghRepo = getGitHubRepoFromUrl(finalParsed);
+      const isRepoRoot = ghRepo !== null && finalParsed.pathname.split("/").filter(Boolean).length === 2;
+
+      let githubStars: number | undefined;
+      if (isRepoRoot && ghRepo) {
+        const stars = await fetchGitHubStars(ghRepo.owner, ghRepo.repo);
+        if (stars !== null) {
+          githubStars = stars;
+        }
+      }
+
+      let finalTitle = previewTitle || base.title;
+      if (isRepoRoot && finalTitle) {
+        finalTitle = finalTitle
+          .replace(/^GitHub\s*[-–—]\s*/i, "")
+          .replace(/:\s.*$/, "");
+      }
+
+      const ghCommit = getGitHubCommitFromUrl(finalParsed);
+      const ghPull = getGitHubPullFromUrl(finalParsed);
+      let githubDiffStats: { additions: number; deletions: number } | undefined;
+      if (ghCommit) {
+        const stats = await fetchGitHubCommitStats(ghCommit.owner, ghCommit.repo, ghCommit.sha);
+        if (stats) {
+          githubDiffStats = stats;
+        }
+      } else if (ghPull) {
+        const stats = await fetchGitHubPullStats(ghPull.owner, ghPull.repo, ghPull.number);
+        if (stats) {
+          githubDiffStats = stats;
+        }
+      }
+
       return {
         finalUrl,
         domain: finalParsed.hostname.replace(/^www\./, ""),
-        title: previewTitle || base.title,
+        title: finalTitle,
         description: previewDesc || base.description,
         image: resolvedImage,
+        githubStars,
+        githubDiffStats,
       } satisfies LinkPreview;
     } catch {
       return base;
@@ -816,11 +1044,22 @@ function renderRichLinkCard(target: string, label: string, preview: LinkPreview 
     return "";
   }
 
+  const starsHtml = meta.githubStars != null
+    ? `<span class="mori-link-card-stars"><svg class="mori-link-card-star-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"></path></svg>${formatStarCount(meta.githubStars)}</span>`
+    : "";
+
+  const diffHtml = meta.githubDiffStats
+    ? `<span class="mori-link-card-diff"><span class="mori-link-card-diff-add">+${meta.githubDiffStats.additions.toLocaleString()}</span><span class="mori-link-card-diff-del">-${meta.githubDiffStats.deletions.toLocaleString()}</span></span>`
+    : "";
+
+  const descHtml = diffHtml || `<span class="mori-link-card-desc">${escapeAttributeValue(meta.description)}</span>`;
+
   return `<div class="mori-rich-link">
 <a class="mori-link-card-grid" href="${escapeAttributeValue(safeHref)}" target="_blank" rel="noopener noreferrer">
 <span class="mori-link-card-contents">
 <span class="mori-link-card-title">${escapeAttributeValue(meta.title)}</span>
-<span class="mori-link-card-desc">${escapeAttributeValue(meta.description)}</span>
+${descHtml}
+${starsHtml}
 </span>
 <img class="mori-link-card-image" src="${escapeAttributeValue(meta.image)}" alt="" loading="lazy" aria-hidden="true">
 </a>

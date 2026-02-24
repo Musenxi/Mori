@@ -524,6 +524,52 @@
   text-overflow: ellipsis;
 }
 
+.prose-article .mori-link-card-stars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #9a6700;
+}
+
+.dark .prose-article .mori-link-card-stars {
+  color: #d29922;
+}
+
+.prose-article .mori-link-card-star-icon {
+  flex-shrink: 0;
+  fill: currentColor;
+}
+
+.prose-article .mori-link-card-diff {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-family: var(--font-mono, "SF Mono", "Fira Code", monospace);
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.prose-article .mori-link-card-diff-add {
+  color: #1a7f37;
+}
+
+.prose-article .mori-link-card-diff-del {
+  color: #d1242f;
+}
+
+.dark .prose-article .mori-link-card-diff-add {
+  color: #3fb950;
+}
+
+.dark .prose-article .mori-link-card-diff-del {
+  color: #f85149;
+}
+
 .prose-article .mori-link-card-image {
   z-index: 1;
   flex-shrink: 0;
