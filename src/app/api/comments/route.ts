@@ -13,7 +13,8 @@ interface CommentBody {
   text?: string;
 }
 
-const READ_CACHE_CONTROL = "public, max-age=30, stale-while-revalidate=120";
+const COMMENT_CACHE_SECONDS = 5;
+const READ_CACHE_CONTROL = `public, max-age=${COMMENT_CACHE_SECONDS}, stale-while-revalidate=${COMMENT_CACHE_SECONDS * 4}`;
 
 function toNoStoreJson(data: unknown, status = 200) {
   return NextResponse.json(
@@ -57,6 +58,8 @@ export async function GET(request: NextRequest) {
   const cid = parsePositiveInt(cidRaw, Number.NaN);
   const page = parsePositiveInt(request.nextUrl.searchParams.get("page"), 1);
   const pageSize = parsePositiveInt(request.nextUrl.searchParams.get("pageSize"), 10);
+  const freshRaw = request.nextUrl.searchParams.get("fresh")?.trim().toLowerCase();
+  const fresh = freshRaw === "1" || freshRaw === "true" || freshRaw === "yes";
 
   if (!slug && !Number.isFinite(cid)) {
     return badRequest("缺少文章 slug 或 cid。");
@@ -69,21 +72,28 @@ export async function GET(request: NextRequest) {
       page,
       pageSize,
       order: "desc",
-      revalidate: 30,
+      revalidate: fresh ? false : COMMENT_CACHE_SECONDS,
     });
+    const payload = {
+      ok: true,
+      data: {
+        comments: limitCommentDepth(normalizeCommentTree(response.dataSet), 2),
+        pagination: {
+          page: response.page,
+          pageSize: response.pageSize,
+          pages: response.pages,
+          count: response.count,
+        },
+      },
+    };
+
+    if (fresh) {
+      return toNoStoreJson(payload);
+    }
 
     return toReadCachedJson(
       {
-        ok: true,
-        data: {
-          comments: limitCommentDepth(normalizeCommentTree(response.dataSet), 2),
-          pagination: {
-            page: response.page,
-            pageSize: response.pageSize,
-            pages: response.pages,
-            count: response.count,
-          },
-        },
+        ...payload,
       },
     );
   } catch (error) {

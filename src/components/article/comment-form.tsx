@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 export interface ReplyTarget {
   coid: number;
@@ -30,7 +29,6 @@ const INITIAL_FORM: FormState = {
 };
 
 export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitted }: CommentFormProps) {
-  const router = useRouter();
   const formId = useId().replace(/:/g, "");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -91,7 +89,6 @@ export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitt
       setFeedback("评论已提交，感谢你的分享。若开启审核，管理员通过后会展示。");
       setForm(INITIAL_FORM);
       await onSubmitted?.();
-      router.refresh();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "评论提交失败，请稍后重试。");
     } finally {

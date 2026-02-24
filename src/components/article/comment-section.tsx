@@ -71,7 +71,7 @@ export function CommentSection({
   const refreshComments = useCallback(
     async (
       page: number,
-      options?: { preserveExistingOnEmpty?: boolean },
+      options?: { preserveExistingOnEmpty?: boolean; fresh?: boolean },
     ): Promise<{ ok: boolean; commentCount: number }> => {
       if (loadingPage) {
         return { ok: false, commentCount: currentComments.length };
@@ -81,9 +81,19 @@ export function CommentSection({
       setFeedback("");
 
       try {
+        const query = new URLSearchParams({
+          slug,
+          page: String(page),
+          pageSize: String(pageSize),
+        });
+        if (options?.fresh) {
+          query.set("fresh", "1");
+          query.set("_ts", String(Date.now()));
+        }
+
         const response = await fetch(
-          `/api/comments?slug=${encodeURIComponent(slug)}&page=${page}&pageSize=${pageSize}`,
-          { method: "GET", cache: "force-cache" },
+          `/api/comments?${query.toString()}`,
+          { method: "GET", cache: options?.fresh ? "no-store" : "force-cache" },
         );
 
         const result = (await response.json()) as {
@@ -161,8 +171,9 @@ export function CommentSection({
       {!disableForm && !replyTarget ? (
         <CommentForm
           slug={slug}
-          onSubmitted={() => {
+          onSubmitted={async () => {
             setReplyTarget(null);
+            await refreshComments(1, { preserveExistingOnEmpty: true, fresh: true });
           }}
         />
       ) : null}
@@ -178,8 +189,9 @@ export function CommentSection({
               slug={slug}
               replyTarget={replyTarget}
               onCancelReply={() => setReplyTarget(null)}
-              onSubmitted={() => {
+              onSubmitted={async () => {
                 setReplyTarget(null);
+                await refreshComments(1, { preserveExistingOnEmpty: true, fresh: true });
               }}
             />
           ) : null

@@ -43,6 +43,7 @@ export interface ColumnInfo {
 }
 
 const DEFAULT_COMMENT_PAGE_SIZE = 10;
+const COMMENT_CACHE_SECONDS = 5;
 
 function mapCategoryToColumn(category: TypechoCategory): ColumnInfo {
   return {
@@ -434,7 +435,7 @@ export async function getPostDetailData(
         page: commentPage,
         pageSize: commentPageSize,
         order: "desc",
-        revalidate: 30,
+        revalidate: COMMENT_CACHE_SECONDS,
       }),
     getArchives({ showDigest: "excerpt", limit: 92, showContent: true, order: "desc", revalidate: 60 }),
     getCategories(),
@@ -522,7 +523,7 @@ export async function getStaticPageDetailBySlug(
           page: commentPage,
           pageSize: commentPageSize,
           order: "desc",
-          revalidate: 30,
+          revalidate: COMMENT_CACHE_SECONDS,
         });
 
     return {
