@@ -419,9 +419,14 @@ interface CommentCreateInput {
   text: string;
 }
 
+interface CommentCreateOptions {
+  clientIp?: string;
+}
+
 export async function createComment(
   input: CommentCreateInput,
   userAgent: string,
+  options: CommentCreateOptions = {},
 ): Promise<TypechoCommentRaw> {
   const post = input.cid
     ? await requestTypecho<TypechoPostRaw>("post", {
@@ -446,8 +451,18 @@ export async function createComment(
     throw new TypechoClientError("未能定位文章 cid，无法提交评论。", 400);
   }
 
+  const clientIp = typeof options.clientIp === "string" ? options.clientIp.trim() : "";
+  const forwardedHeaders = clientIp
+    ? {
+      "X-Typecho-Restful-Ip": clientIp,
+      "X-Forwarded-For": clientIp,
+      "X-Real-IP": clientIp,
+    }
+    : undefined;
+
   return requestTypecho<TypechoCommentRaw>("comment", {
     method: "POST",
+    headers: forwardedHeaders,
     body: {
       cid: resolvedCid,
       ownerId: COMMENT_OWNER_ID,

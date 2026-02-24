@@ -52,6 +52,74 @@ function parsePositiveInt(raw: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function normalizeClientIp(raw: string | null | undefined) {
+  if (!raw) {
+    return "";
+  }
+
+  let value = raw.trim();
+  if (!value) {
+    return "";
+  }
+
+  if (value.includes(",")) {
+    value = value.split(",")[0]?.trim() ?? "";
+  }
+
+  if (value.toLowerCase().startsWith("for=")) {
+    value = value.slice(4).trim();
+  }
+
+  value = value.replace(/^["']|["']$/g, "");
+
+  if (value.startsWith("[") && value.includes("]")) {
+    value = value.slice(1, value.indexOf("]")).trim();
+  } else {
+    const ipv4WithPort = value.match(/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/);
+    if (ipv4WithPort?.[1]) {
+      value = ipv4WithPort[1];
+    }
+  }
+
+  if (!value || value.toLowerCase() === "unknown") {
+    return "";
+  }
+
+  return value.slice(0, 128);
+}
+
+function resolveClientIp(request: NextRequest) {
+  const forwarded = request.headers.get("forwarded");
+  if (forwarded) {
+    const firstPart = forwarded.split(",")[0] ?? forwarded;
+    const forMatch = firstPart.match(/for=(?:"?\[?)([^;\],"]+)/i);
+    const forwardedIp = normalizeClientIp(forMatch?.[1] ?? "");
+    if (forwardedIp) {
+      return forwardedIp;
+    }
+  }
+
+  const headerNames = [
+    "x-typecho-restful-ip",
+    "cf-connecting-ip",
+    "x-forwarded-for",
+    "x-real-ip",
+    "x-client-ip",
+    "x-vercel-forwarded-for",
+    "true-client-ip",
+    "fastly-client-ip",
+  ];
+
+  for (const headerName of headerNames) {
+    const normalized = normalizeClientIp(request.headers.get(headerName));
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return "";
+}
+
 export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("slug")?.trim() ?? "";
   const cidRaw = request.nextUrl.searchParams.get("cid");
@@ -147,6 +215,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const clientIp = resolveClientIp(request);
     const result = await createComment(
       {
         slug: slug || undefined,
@@ -158,6 +227,9 @@ export async function POST(request: NextRequest) {
         text,
       },
       request.headers.get("user-agent") ?? "Mori-Frontend/1.0",
+      {
+        clientIp,
+      },
     );
 
     return toNoStoreJson(
