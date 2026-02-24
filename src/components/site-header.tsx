@@ -133,7 +133,7 @@ export function SiteHeader({ blogTitle, navItems, mobileArticleMode = false }: S
         <Link
           key={item.href}
           href={item.href}
-          className="font-serif-cn text-[14px] tracking-[2px] text-primary transition-opacity hover:opacity-70 md:text-[14px]"
+          className="font-serif-cn text-[17px] tracking-[2px] text-primary transition-opacity hover:opacity-70 md:text-[17px]"
           onClick={() => setMobileOpen(false)}
         >
           {item.label}
