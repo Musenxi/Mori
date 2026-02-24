@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.0",
+    "@next/env": "^16.1.6",
     "@shikijs/transformers": "3.2.2",
     "katex": "^0.16.28",
     "markdown-to-jsx": "npm:@innei/markdown-to-jsx@7.2.1-beta.6",
