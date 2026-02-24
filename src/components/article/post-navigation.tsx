@@ -16,7 +16,7 @@ function NavBlock({ label, post }: { label: string; post?: NormalizedPost }) {
   return (
     <>
       <div className="h-px w-full bg-border" />
-      <Link href={`/post/${post.slug}`} className="block py-5">
+      <Link href={`/post/${post.slug}`} prefetch={false} className="block py-5">
         <p className="font-sans text-xs text-muted">{label}</p>
         <p className="mt-1 font-sans text-[15px] text-primary">{post.title}</p>
       </Link>

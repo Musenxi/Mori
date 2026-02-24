@@ -11,7 +11,7 @@ interface PostCardProps {
 export function PostCard({ post, compact = false }: PostCardProps) {
   return (
     <article className={cn("w-full py-8", compact && "py-[15px]")}>
-      <Link href={`/post/${post.slug}`} className="group block">
+      <Link href={`/post/${post.slug}`} prefetch={false} className="group block">
         <div className="flex items-center gap-3">
           <time className="font-sans text-xs tracking-[1px] text-muted">{post.shortDate}</time>
           <span className="inline-flex items-center justify-center rounded px-[6px] py-[1px] text-[10px] text-muted bg-tag">

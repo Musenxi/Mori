@@ -36,6 +36,7 @@ export function ColumnDirectory({
             <Link
               key={article.cid}
               href={`/post/${article.slug}`}
+              prefetch={false}
               style={
                 staggered
                   ? {

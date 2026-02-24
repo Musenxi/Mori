@@ -34,6 +34,7 @@ function SideNavItem({
     >
       <Link
         href={`/post/${post.slug}`}
+        prefetch={false}
         aria-current={active ? "page" : undefined}
         className={cn(
           "min-w-0 flex-1 truncate text-left font-serif-cn text-[13px] leading-[1.5] transition-all",

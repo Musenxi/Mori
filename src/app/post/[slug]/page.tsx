@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import "../../article-content-critical.css";
 import { ColumnInfoCard } from "@/components/column-info-card";
 import { PostContentFallback } from "@/components/page-loading-fallbacks";
 import { Shell } from "@/components/shell";
 import { buildNavItems } from "@/lib/navigation";
 import { getPostDetailData, getSiteContext } from "@/lib/site-data";
 import { getPosts } from "@/lib/typecho-client";
+import { ArticleContentDeferredStyles } from "@/components/article/article-content-deferred-styles";
 import { PostBody } from "@/components/article/post-body";
 import { PostHero } from "@/components/article/post-hero";
 import { ColumnDirectory } from "@/components/article/column-directory";
@@ -62,6 +64,7 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
 
   return (
     <>
+      <ArticleContentDeferredStyles />
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0">
         <section className="flex flex-col gap-8 py-6 md:gap-10 md:py-[100px]">
           <div className="mori-stagger-item">

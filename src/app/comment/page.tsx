@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import "../article-content-critical.css";
 import { StaticPageContentFallback } from "@/components/page-loading-fallbacks";
 import { Shell } from "@/components/shell";
 import { StaticPageContent } from "@/components/static-page-view";

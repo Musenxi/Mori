@@ -4,6 +4,8 @@ import type { ComponentType } from "react";
 import { useEffect } from "react";
 import { createRoot, Root } from "react-dom/client";
 
+import "@excalidraw/excalidraw/index.css";
+
 type ExcalidrawInitialData = Record<string, unknown>;
 type ExcalidrawAPI = {
   scrollToContent?: (target?: unknown, options?: { fitToContent?: boolean }) => void;
