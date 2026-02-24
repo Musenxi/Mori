@@ -19,6 +19,7 @@
 - Tailwind CSS v4
 - `next-themes`（日/夜主题切换）
 - `sanitize-html`（文章与评论 HTML 安全过滤）
+- Socket.IO（计数与在线状态实时同步）
 
 ## 本地运行
 
@@ -114,12 +115,46 @@ REDIS_KEY_PREFIX="mori"
 
 Socket.IO 实时同步：
 
-- 服务端在 `POST /api/post-stats` 成功计数后，会广播 `post:counter-updated` 事件。
+- 服务端在 `POST /api/post-stats` 成功计数后，会广播 `post:counter-updated` 事件（浏览/点赞实时更新）。
+- 服务端会广播 `presence:online`（全站在线连接数）和 `presence:post-reading`（单篇文章实时阅读人数）。
 - `SOCKET_INTERNAL_TOKEN` 用于保护内部广播桥接接口（`/internal/socket-broadcast`），生产环境建议使用高强度随机值。
-- 房间粒度：
+- 计数房间：
 - `post:<cid>`
 - `post:slug:<slug>`
-- 文章页会自动订阅当前文章房间，收到事件后实时刷新浏览/点赞数字。
+- 阅读状态房间：
+- `presence:post:<cid>`
+- `presence:post:slug:<slug>`
+- 前端显示位置：
+- Footer：`正在被X人看爆`（全站在线人数）
+- 文章页元信息区（点赞后）：`X人正在阅读`（当前文章在线阅读人数）
+
+Redis 缓存范围（Mori）：
+
+- 仅缓存 Typecho API 的 GET 请求，且 `revalidate !== false` 的请求会落 Redis。
+- Redis key 结构：
+- `<REDIS_KEY_PREFIX>:typecho:<TYPECHO_API_BASE_URL>:GET:<path>?<sortedQuery>`
+- 典型会被缓存的数据：`settings`、`pages`、`categories`、`tags`、`posts`、`archives`、`post`、`comments`。
+- 以下不会走 Redis 缓存：
+- 所有 POST 请求（如评论提交、浏览+1、点赞+1）
+- `revalidate: false` 的请求（显式 no-store）
+- Redis 不可用时，应用会自动降级到直连 Typecho，并输出一次告警日志：`[redis] disabled due to connection error: ...`
+
+怎么判断 Redis 是否连上：
+
+- 用 `redis-cli` 直接探活：
+
+```bash
+redis-cli -h 127.0.0.1 -p 6379 ping
+# 预期输出：PONG
+```
+
+- 启动 Mori 后请求几个页面，再看是否有缓存键（以 `REDIS_KEY_PREFIX=mori` 为例）：
+
+```bash
+redis-cli --scan --pattern 'mori:typecho:*' | head
+```
+
+- 若服务日志出现 `[redis] disabled due to connection error`，表示 Redis 未成功接入，当前处于降级模式。
 
 ## Typecho Restful 插件要求
 

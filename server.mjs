@@ -12,6 +12,8 @@ const host = process.env.HOST || "0.0.0.0";
 const port = Number.parseInt(process.env.PORT || "3000", 10);
 const SOCKET_INTERNAL_TOKEN = process.env.SOCKET_INTERNAL_TOKEN?.trim() || "mori-local-socket-token";
 const INTERNAL_BROADCAST_PATH = "/internal/socket-broadcast";
+const PRESENCE_ONLINE_EVENT = "presence:online";
+const PRESENCE_POST_READING_EVENT = "presence:post-reading";
 
 function normalizePostTarget(rawPayload) {
   if (!rawPayload || typeof rawPayload !== "object") {
@@ -41,6 +43,41 @@ function buildPostRooms(target) {
   }
 
   return rooms;
+}
+
+function buildPresenceRoom(target) {
+  if (target.cid) {
+    return `presence:post:${target.cid}`;
+  }
+
+  if (target.slug) {
+    return `presence:post:slug:${target.slug}`;
+  }
+
+  return "";
+}
+
+function getOnlineCount(io) {
+  return io.of("/").sockets.size;
+}
+
+function emitOnlinePresence(io) {
+  io.emit(PRESENCE_ONLINE_EVENT, {
+    count: getOnlineCount(io),
+  });
+}
+
+function emitPostReadingPresence(io, room, target) {
+  if (!room || !target) {
+    return;
+  }
+
+  const count = io.sockets.adapter.rooms.get(room)?.size ?? 0;
+  io.to(room).emit(PRESENCE_POST_READING_EVENT, {
+    cid: target.cid ?? null,
+    slug: target.slug ?? null,
+    count,
+  });
 }
 
 function sendJson(res, status, data) {
@@ -128,6 +165,10 @@ app
     });
 
     io.on("connection", (socket) => {
+      socket.data.presenceRoom = null;
+      socket.data.presenceTarget = null;
+      emitOnlinePresence(io);
+
       socket.on("post:join", (rawPayload) => {
         const target = normalizePostTarget(rawPayload);
         buildPostRooms(target).forEach((room) => {
@@ -140,6 +181,81 @@ app
         buildPostRooms(target).forEach((room) => {
           socket.leave(room);
         });
+      });
+
+      socket.on("presence:join", (rawPayload) => {
+        const target = normalizePostTarget(rawPayload);
+        const nextRoom = buildPresenceRoom(target);
+        if (!nextRoom) {
+          return;
+        }
+
+        const prevRoom = typeof socket.data.presenceRoom === "string" ? socket.data.presenceRoom : "";
+        const prevTarget =
+          socket.data.presenceTarget && typeof socket.data.presenceTarget === "object"
+            ? socket.data.presenceTarget
+            : null;
+
+        if (prevRoom && prevRoom !== nextRoom) {
+          socket.leave(prevRoom);
+          emitPostReadingPresence(io, prevRoom, prevTarget);
+        }
+
+        if (prevRoom !== nextRoom) {
+          socket.join(nextRoom);
+        }
+
+        socket.data.presenceRoom = nextRoom;
+        socket.data.presenceTarget = target;
+        emitPostReadingPresence(io, nextRoom, target);
+      });
+
+      socket.on("presence:online:pull", () => {
+        socket.emit(PRESENCE_ONLINE_EVENT, {
+          count: getOnlineCount(io),
+        });
+      });
+
+      socket.on("presence:leave", (rawPayload) => {
+        const currentRoom = typeof socket.data.presenceRoom === "string" ? socket.data.presenceRoom : "";
+        const currentTarget =
+          socket.data.presenceTarget && typeof socket.data.presenceTarget === "object"
+            ? socket.data.presenceTarget
+            : null;
+
+        if (!currentRoom || !currentTarget) {
+          return;
+        }
+
+        const target = normalizePostTarget(rawPayload);
+        if (target.cid || target.slug) {
+          const sameCid = target.cid && currentTarget.cid && target.cid === currentTarget.cid;
+          const sameSlug = target.slug && currentTarget.slug && target.slug === currentTarget.slug;
+          if (!sameCid && !sameSlug) {
+            return;
+          }
+        }
+
+        socket.leave(currentRoom);
+        socket.data.presenceRoom = null;
+        socket.data.presenceTarget = null;
+        emitPostReadingPresence(io, currentRoom, currentTarget);
+      });
+
+      socket.on("disconnect", () => {
+        const room = typeof socket.data.presenceRoom === "string" ? socket.data.presenceRoom : "";
+        const target =
+          socket.data.presenceTarget && typeof socket.data.presenceTarget === "object"
+            ? socket.data.presenceTarget
+            : null;
+
+        socket.data.presenceRoom = null;
+        socket.data.presenceTarget = null;
+
+        if (room && target) {
+          emitPostReadingPresence(io, room, target);
+        }
+        emitOnlinePresence(io);
       });
     });
 

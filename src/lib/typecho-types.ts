@@ -133,6 +133,16 @@ export interface PostCounterRealtimePayload {
   likesNum: number;
 }
 
+export interface OnlinePresencePayload {
+  count: number;
+}
+
+export interface PostReadingPresencePayload {
+  cid?: number | null;
+  slug?: string | null;
+  count: number;
+}
+
 export interface NormalizedPost {
   cid: number;
   slug: string;

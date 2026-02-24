@@ -3,7 +3,13 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { NormalizedPost, PostCounterRealtimePayload, TypechoPostCounter } from "@/lib/typecho-types";
+import { getRealtimeSocket } from "@/lib/realtime-socket";
+import {
+  NormalizedPost,
+  PostCounterRealtimePayload,
+  PostReadingPresencePayload,
+  TypechoPostCounter,
+} from "@/lib/typecho-types";
 
 interface PostHeroProps {
   post: NormalizedPost & { coverImage?: string };
@@ -18,6 +24,7 @@ interface CounterResponseEnvelope {
 }
 
 const POST_COUNTER_UPDATED_EVENT = "post:counter-updated";
+const PRESENCE_POST_READING_EVENT = "presence:post-reading";
 
 function getClientLockKey(metric: "view" | "like", cid: number) {
   return `mori:${metric}:lock:${cid}`;
@@ -93,6 +100,7 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
   });
   const [liked, setLiked] = useState(false);
   const [likePending, setLikePending] = useState(false);
+  const [readingCount, setReadingCount] = useState<number | null>(null);
 
   const applyCounter = useCallback((counter?: TypechoPostCounter) => {
     if (!counter) {
@@ -102,6 +110,25 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
     setLikesNum(Number.isFinite(counter.likesNum) ? counter.likesNum : null);
     setLiked(Boolean(counter.liked));
   }, []);
+
+  const applyPostReadingPresence = useCallback((payload?: PostReadingPresencePayload) => {
+    if (!payload) {
+      return;
+    }
+
+    const payloadCid = Number(payload.cid);
+    const payloadSlug = typeof payload.slug === "string" ? payload.slug : "";
+    if (payloadCid !== post.cid && payloadSlug !== post.slug) {
+      return;
+    }
+
+    const parsedCount = Number(payload.count);
+    if (!Number.isFinite(parsedCount) || parsedCount < 0) {
+      return;
+    }
+
+    setReadingCount(Math.floor(parsedCount));
+  }, [post.cid, post.slug]);
 
   const applyRealtimeCounter = useCallback((counter?: PostCounterRealtimePayload) => {
     if (!counter) {
@@ -177,19 +204,16 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
 
   useEffect(() => {
     let disposed = false;
-    let cleanup: (() => void) | null = null;
+    let socketRef: Awaited<ReturnType<typeof getRealtimeSocket>> | null = null;
 
     async function setupSocketSubscription() {
       try {
-        const { io } = await import("socket.io-client");
+        const socket = await getRealtimeSocket();
         if (disposed) {
           return;
         }
 
-        const socket = io({
-          path: "/socket.io",
-          transports: ["websocket", "polling"],
-        });
+        socketRef = socket;
 
         const handleCounterUpdated = (payload: PostCounterRealtimePayload) => {
           const payloadCid = Number(payload?.cid);
@@ -201,26 +225,37 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
           applyRealtimeCounter(payload);
         };
 
-        socket.on(POST_COUNTER_UPDATED_EVENT, handleCounterUpdated);
-        socket.emit("post:join", { cid: post.cid, slug: post.slug });
+        const handlePostReadingUpdated = (payload: PostReadingPresencePayload) => {
+          applyPostReadingPresence(payload);
+        };
 
-        cleanup = () => {
+        socket.on(POST_COUNTER_UPDATED_EVENT, handleCounterUpdated);
+        socket.on(PRESENCE_POST_READING_EVENT, handlePostReadingUpdated);
+        socket.emit("post:join", { cid: post.cid, slug: post.slug });
+        socket.emit("presence:join", { cid: post.cid, slug: post.slug });
+
+        return () => {
           socket.off(POST_COUNTER_UPDATED_EVENT, handleCounterUpdated);
-          socket.emit("post:leave", { cid: post.cid, slug: post.slug });
-          socket.disconnect();
+          socket.off(PRESENCE_POST_READING_EVENT, handlePostReadingUpdated);
         };
       } catch {
         // Ignore socket initialization errors and keep HTTP fallback.
+        return undefined;
       }
     }
 
-    void setupSocketSubscription();
+    let localCleanup: (() => void) | undefined;
+    void setupSocketSubscription().then((cleanup) => {
+      localCleanup = cleanup;
+    });
 
     return () => {
       disposed = true;
-      cleanup?.();
+      localCleanup?.();
+      socketRef?.emit("post:leave", { cid: post.cid, slug: post.slug });
+      socketRef?.emit("presence:leave", { cid: post.cid, slug: post.slug });
     };
-  }, [applyRealtimeCounter, post.cid, post.slug]);
+  }, [applyPostReadingPresence, applyRealtimeCounter, post.cid, post.slug]);
 
   const handleLike = useCallback(async () => {
     if (liked || likePending) {
@@ -248,6 +283,13 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
     }
     return String(likesNum);
   }, [likeCount, likesNum]);
+
+  const readingCountLabel = useMemo(() => {
+    if (readingCount === null) {
+      return "--";
+    }
+    return String(readingCount);
+  }, [readingCount]);
 
   return (
     <section className="mx-auto flex w-full max-w-[1104px] flex-col items-center gap-6 pt-10 md:pt-10">
@@ -313,6 +355,17 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
           </span>
           <span>{likeCountLabel}</span>
         </button>
+        <MetaItem
+          icon={
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 20V7" />
+              <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v14a3 3 0 0 0-3-3H5.5A2.5 2.5 0 0 0 3 19.5V6.5Z" />
+              <path d="M21 6.5A2.5 2.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v14a3 3 0 0 1 3-3h3.5a2.5 2.5 0 0 1 2.5 2.5V6.5Z" />
+            </svg>
+          }
+        >
+          <span>{readingCountLabel}人正在阅读</span>
+        </MetaItem>
       </div>
 
       {post.coverImage ? (
