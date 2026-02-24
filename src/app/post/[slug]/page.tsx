@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { ColumnInfoCard } from "@/components/column-info-card";
+import { PostContentFallback } from "@/components/page-loading-fallbacks";
 import { Shell } from "@/components/shell";
 import { buildNavItems } from "@/lib/navigation";
 import { getPostDetailData, getSiteContext } from "@/lib/site-data";
@@ -43,18 +44,12 @@ export async function generateStaticParams() {
   }
 }
 
-export default async function PostPage({ params }: PostPageProps) {
-  const { slug } = await params;
+async function PostPageContent({ slug, configured }: { slug: string; configured: boolean }) {
   const commentPage = 1;
 
-  const context = await getSiteContext();
-  const navItems = buildNavItems(context);
-
-  if (!context.configured) {
+  if (!configured) {
     return (
-      <Shell context={context} navItems={navItems} mobileArticleMode>
-        <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0" />
-      </Shell>
+      <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0" />
     );
   }
 
@@ -66,7 +61,7 @@ export default async function PostPage({ params }: PostPageProps) {
   const tocItems = detail.tocItems;
 
   return (
-    <Shell context={context} navItems={navItems} mobileArticleMode>
+    <>
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0">
         <section className="flex flex-col gap-8 py-6 md:gap-10 md:py-[100px]">
           <div className="mori-stagger-item">
@@ -140,6 +135,20 @@ export default async function PostPage({ params }: PostPageProps) {
       </main>
 
       <MobileTocSheet items={tocItems} />
+    </>
+  );
+}
+
+export default async function PostPage({ params }: PostPageProps) {
+  const { slug } = await params;
+  const context = await getSiteContext();
+  const navItems = buildNavItems(context);
+
+  return (
+    <Shell context={context} navItems={navItems} mobileArticleMode>
+      <Suspense fallback={<PostContentFallback />}>
+        <PostPageContent slug={slug} configured={context.configured} />
+      </Suspense>
     </Shell>
   );
 }

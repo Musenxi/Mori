@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { ColumnDetailClient } from "@/components/column-detail-client";
+import { ColumnDetailContentFallback } from "@/components/page-loading-fallbacks";
 import { Shell } from "@/components/shell";
 import { buildNavItems } from "@/lib/navigation";
 import { getColumnDetailData, getColumnsData, getSiteContext } from "@/lib/site-data";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 interface ColumnDetailPageProps {
   params: Promise<{
@@ -13,18 +15,15 @@ interface ColumnDetailPageProps {
   }>;
 }
 
-export default async function ColumnDetailPage({ params }: ColumnDetailPageProps) {
-  const { slug } = await params;
-
-  const context = await getSiteContext();
-  const navItems = buildNavItems(context);
-
-  if (!context.configured) {
-    return (
-      <Shell context={context} navItems={navItems}>
-        <main className="mx-auto w-full max-w-[1440px] px-5 py-10 md:px-[80px] md:py-[80px] md:pl-[clamp(20px,calc(40vw-280px),300px)]" />
-      </Shell>
-    );
+async function ColumnDetailContent({
+  slug,
+  configured,
+}: {
+  slug: string;
+  configured: boolean;
+}) {
+  if (!configured) {
+    return null;
   }
 
   const [data, columns] = await Promise.all([
@@ -37,14 +36,26 @@ export default async function ColumnDetailPage({ params }: ColumnDetailPageProps
   }
 
   return (
+    <ColumnDetailClient
+      columns={columns}
+      initialSlug={slug}
+      initialColumn={data.column}
+      initialGroups={data.groups}
+    />
+  );
+}
+
+export default async function ColumnDetailPage({ params }: ColumnDetailPageProps) {
+  const { slug } = await params;
+  const context = await getSiteContext();
+  const navItems = buildNavItems(context);
+
+  return (
     <Shell context={context} navItems={navItems}>
       <main className="mx-auto w-full max-w-[1440px] px-5 py-10 md:px-[80px] md:py-[80px] md:pl-[clamp(20px,calc(40vw-280px),300px)]">
-        <ColumnDetailClient
-          columns={columns}
-          initialSlug={slug}
-          initialColumn={data.column}
-          initialGroups={data.groups}
-        />
+        <Suspense fallback={<ColumnDetailContentFallback />}>
+          <ColumnDetailContent slug={slug} configured={context.configured} />
+        </Suspense>
       </main>
     </Shell>
   );

@@ -1,8 +1,12 @@
-import { StaticPageView } from "@/components/static-page-view";
+import { Suspense } from "react";
+
+import { StaticPageContentFallback } from "@/components/page-loading-fallbacks";
+import { Shell } from "@/components/shell";
+import { StaticPageContent } from "@/components/static-page-view";
 import { buildNavItems } from "@/lib/navigation";
 import { getSiteContext, getStaticPageDetailBySlug } from "@/lib/site-data";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 interface AboutPageProps {
   searchParams: Promise<{
@@ -15,21 +19,35 @@ function parseCommentPage(value?: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
-export default async function AboutPage({ searchParams }: AboutPageProps) {
-  const commentPage = parseCommentPage((await searchParams).cpage);
-  const context = await getSiteContext();
-  const navItems = buildNavItems(context);
-
-  const detail = context.configured ? await getStaticPageDetailBySlug("about", commentPage) : null;
+async function AboutPageContent({
+  configured,
+  commentPage,
+}: {
+  configured: boolean;
+  commentPage: number;
+}) {
+  const detail = configured ? await getStaticPageDetailBySlug("about", commentPage) : null;
 
   return (
-    <StaticPageView
-      context={context}
-      navItems={navItems}
+    <StaticPageContent
       fallbackTitle="关于"
       page={detail?.page ?? null}
       comments={detail?.comments ?? []}
       commentsPagination={detail?.commentsPagination}
     />
+  );
+}
+
+export default async function AboutPage({ searchParams }: AboutPageProps) {
+  const commentPage = parseCommentPage((await searchParams).cpage);
+  const context = await getSiteContext();
+  const navItems = buildNavItems(context);
+
+  return (
+    <Shell context={context} navItems={navItems}>
+      <Suspense fallback={<StaticPageContentFallback />}>
+        <AboutPageContent configured={context.configured} commentPage={commentPage} />
+      </Suspense>
+    </Shell>
   );
 }
