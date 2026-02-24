@@ -163,6 +163,7 @@
 
 .prose-article blockquote p {
   font: inherit;
+  font-size: 1.8rem;
   color: #3f3f5a;
 }
 
@@ -215,6 +216,18 @@
 .dark .prose-article blockquote::before,
 .dark .prose-article blockquote::after {
   color: color-mix(in srgb, #d9d9e6 22%, transparent);
+}
+
+@media (max-width: 767px) {
+  .prose-article blockquote::before {
+    left: -0.45rem;
+    top: -0.8rem;
+  }
+
+  .prose-article blockquote::after {
+    right: -0.45rem;
+    bottom: -1.6rem;
+  }
 }
 
 .prose-article .mori-callout {

@@ -76,9 +76,9 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
             />
           </div>
 
-          <section className="min-[1280px]:mx-auto min-[1280px]:grid min-[1280px]:max-w-[1440px] min-[1280px]:grid-cols-[180px_minmax(0,1fr)_180px] min-[1280px]:gap-x-8 min-[1440px]:grid-cols-[180px_850px_200px] min-[1440px]:gap-x-[95px]">
+          <section className="min-[1440px]:mx-auto min-[1440px]:grid min-[1440px]:max-w-[1440px] min-[1440px]:grid-cols-[180px_850px_200px] min-[1440px]:gap-x-[95px]">
             <aside
-              className="mori-stagger-item hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block min-[1280px]:w-[180px] min-[1280px]:max-h-[calc(100vh-7rem)] min-[1280px]:self-start min-[1280px]:justify-self-end min-[1280px]:overflow-y-auto min-[1280px]:pr-1"
+              className="mori-stagger-item hidden min-[1440px]:sticky min-[1440px]:top-24 min-[1440px]:block min-[1440px]:w-[180px] min-[1440px]:max-h-[calc(100vh-7rem)] min-[1440px]:self-start min-[1440px]:justify-self-end min-[1440px]:overflow-y-auto min-[1440px]:pr-1"
               style={{ animationDelay: "70ms" }}
             >
               <SidePostNavigation
@@ -108,7 +108,7 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
 
               <section className="mori-stagger-item flex flex-col gap-5 md:gap-6" style={{ animationDelay: "140ms" }}>
                 {detail.column ? <ColumnInfoCard column={detail.column} /> : null}
-                <div className="min-[1280px]:hidden">
+                <div className="min-[1440px]:hidden">
                   <PostNavigation prev={detail.adjacent.prev} next={detail.adjacent.next} nextFirst />
                 </div>
               </section>
@@ -128,7 +128,7 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
             </div>
 
             <aside
-              className="mori-stagger-item hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block min-[1280px]:max-h-[calc(100vh-7rem)] min-[1280px]:self-start min-[1280px]:overflow-y-auto min-[1280px]:pr-1"
+              className="mori-stagger-item hidden min-[1440px]:sticky min-[1440px]:top-24 min-[1440px]:block min-[1440px]:w-[200px] min-[1440px]:max-h-[calc(100vh-7rem)] min-[1440px]:self-start min-[1440px]:overflow-y-auto min-[1440px]:pr-1"
               style={{ animationDelay: "240ms" }}
             >
               <TableOfContents items={tocItems} />
