@@ -14,8 +14,8 @@ type ExcalidrawAPI = {
 type ExcalidrawProps = {
   detectScroll?: boolean;
   initialData?:
-    | ExcalidrawInitialData
-    | (() => Promise<ExcalidrawInitialData | null> | ExcalidrawInitialData | null);
+  | ExcalidrawInitialData
+  | (() => Promise<ExcalidrawInitialData | null> | ExcalidrawInitialData | null);
   theme?: "dark" | "light";
   viewModeEnabled?: boolean;
   zenModeEnabled?: boolean;
@@ -444,6 +444,110 @@ export function MarkdownRuntime() {
 
     document.addEventListener("click", clickHandler);
     document.addEventListener("keydown", keydownHandler);
+
+    // Footnote hover tooltip
+    let footnoteTooltip: HTMLElement | null = null;
+    let activeFootnoteRef: HTMLElement | null = null;
+    let hideTimer = 0;
+
+    const removeTooltip = () => {
+      if (hideTimer) {
+        window.clearTimeout(hideTimer);
+        hideTimer = 0;
+      }
+      if (footnoteTooltip) {
+        footnoteTooltip.remove();
+        footnoteTooltip = null;
+      }
+      activeFootnoteRef = null;
+    };
+
+    const showFootnoteTooltip = (ref: HTMLElement) => {
+      if (activeFootnoteRef === ref && footnoteTooltip) {
+        if (hideTimer) {
+          window.clearTimeout(hideTimer);
+          hideTimer = 0;
+        }
+        return;
+      }
+      removeTooltip();
+
+      const link = ref.querySelector<HTMLAnchorElement>(".mori-footnote-link");
+      if (!link) {
+        return;
+      }
+
+      const targetId = link.getAttribute("href")?.replace(/^#/, "");
+      if (!targetId) {
+        return;
+      }
+
+      const footnoteItem = document.getElementById(targetId);
+      if (!footnoteItem) {
+        return;
+      }
+
+      const body = footnoteItem.querySelector<HTMLElement>(".mori-footnote-body");
+      if (!body) {
+        return;
+      }
+
+      const text = body.textContent?.trim();
+      if (!text) {
+        return;
+      }
+
+      activeFootnoteRef = ref;
+      footnoteTooltip = document.createElement("div");
+      footnoteTooltip.className = "mori-footnote-tooltip";
+      footnoteTooltip.textContent = text;
+      document.body.appendChild(footnoteTooltip);
+
+      const refRect = ref.getBoundingClientRect();
+      const tipRect = footnoteTooltip.getBoundingClientRect();
+      let left = refRect.left + refRect.width / 2 - tipRect.width / 2;
+      const top = refRect.top - tipRect.height - 8;
+
+      if (left < 8) {
+        left = 8;
+      }
+      if (left + tipRect.width > window.innerWidth - 8) {
+        left = window.innerWidth - 8 - tipRect.width;
+      }
+
+      footnoteTooltip.style.left = `${left}px`;
+      footnoteTooltip.style.top = `${top < 8 ? refRect.bottom + 8 : top}px`;
+      footnoteTooltip.style.opacity = "1";
+    };
+
+    const footnoteMouseOver = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+      const ref = target.closest<HTMLElement>(".mori-footnote-ref");
+      if (ref) {
+        showFootnoteTooltip(ref);
+      }
+    };
+
+    const footnoteMouseOut = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+      const ref = target.closest<HTMLElement>(".mori-footnote-ref");
+      if (ref && activeFootnoteRef === ref) {
+        if (hideTimer) {
+          window.clearTimeout(hideTimer);
+        }
+        hideTimer = window.setTimeout(removeTooltip, 200);
+      }
+    };
+
+    document.addEventListener("mouseover", footnoteMouseOver);
+    document.addEventListener("mouseout", footnoteMouseOut);
+
     return () => {
       disposed = true;
       observer.disconnect();
@@ -455,6 +559,9 @@ export function MarkdownRuntime() {
       excalidrawRoots.clear();
       document.removeEventListener("click", clickHandler);
       document.removeEventListener("keydown", keydownHandler);
+      document.removeEventListener("mouseover", footnoteMouseOver);
+      document.removeEventListener("mouseout", footnoteMouseOut);
+      removeTooltip();
     };
   }, []);
 

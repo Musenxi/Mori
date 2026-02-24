@@ -288,10 +288,7 @@ function buildFootnotesFooterHtml(content: string) {
       const footnoteId = `mori-footnote-${rawId}`;
       const refId = `mori-footnote-ref-${rawId}`;
 
-      items.push(`<li id="${escapeAttributeValue(footnoteId)}" class="mori-footnote-item">
-<span class="mori-footnote-body">${cleanedBody}</span>
-<a href="#${escapeAttributeValue(refId)}" class="mori-footnote-backref" aria-label="返回正文">↩</a>
-</li>`);
+      items.push(`<li id="${escapeAttributeValue(footnoteId)}" class="mori-footnote-item"><span class="mori-footnote-body">${cleanedBody}</span> <a href="#${escapeAttributeValue(refId)}" class="mori-footnote-backref" aria-label="返回正文">↩</a></li>`);
     }
 
     match = itemRegex.exec(content);

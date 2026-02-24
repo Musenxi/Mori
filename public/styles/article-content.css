@@ -232,6 +232,7 @@
 
 .prose-article .mori-callout {
   margin-top: 24px;
+  margin-bottom: 24px;
   border-left: 3px solid var(--border);
   border-radius: 0;
   background: transparent;
@@ -701,6 +702,11 @@
 .prose-article .mori-footnotes ol {
   margin: 0;
   padding-left: 22px;
+  list-style: decimal;
+}
+
+.prose-article .mori-footnote-item {
+  padding-left: 4px;
 }
 
 .prose-article .mori-footnote-item+.mori-footnote-item {
@@ -720,8 +726,29 @@
 }
 
 .prose-article .mori-footnote-backref {
-  margin-left: 8px;
+  display: inline;
+  margin-left: 6px;
   text-decoration: none;
+  font-size: 14px;
+  vertical-align: baseline;
+}
+
+.mori-footnote-tooltip {
+  position: fixed;
+  z-index: 100;
+  max-width: min(420px, 80vw);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 8%, transparent);
+  font-family: var(--font-inter), "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--secondary);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }
 
 .prose-article .mori-code-block {
