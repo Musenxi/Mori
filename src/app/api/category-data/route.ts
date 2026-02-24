@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getCategoryData } from "@/lib/site-data";
 
-function toNoStoreJson(data: unknown, status = 200) {
+function toJson(data: unknown, status = 200) {
   return NextResponse.json(data, {
     status,
     headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "Cache-Control": "public, max-age=30, stale-while-revalidate=120",
     },
   });
 }
@@ -16,13 +16,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const data = await getCategoryData(slug);
-    return toNoStoreJson({
+    return toJson({
       ok: true,
       data,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "分类数据加载失败。";
-    return toNoStoreJson(
+    return toJson(
       {
         ok: false,
         message,

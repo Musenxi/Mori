@@ -29,6 +29,8 @@ pnpm dev
 
 默认地址：`http://localhost:3000`
 
+说明：`pnpm dev` / `pnpm start` 现在通过项目根目录的 `server.mjs` 启动 Next.js + Socket.IO 同进程服务。
+
 ## 环境变量
 
 在项目根目录新建 `.env.local`：
@@ -38,6 +40,9 @@ TYPECHO_API_BASE_URL="https://your-typecho-site.com/api"
 TYPECHO_API_TOKEN="your-plugin-api-token"
 TYPECHO_REVALIDATE_SECONDS="90"
 GRAVATAR_PREFIX="https://gravatar.com/avatar/"
+REDIS_URL="redis://127.0.0.1:6379"
+REDIS_KEY_PREFIX="mori"
+SOCKET_INTERNAL_TOKEN="replace-with-a-strong-random-string"
 ```
 
 如果 Typecho 没开伪静态，请使用：
@@ -57,6 +62,64 @@ TYPECHO_API_BASE_URL="https://your-typecho-site.com/index.php/api"
 
 - 未显式传 `d=` 参数时，系统会自动追加 `d=404`，用于在没有头像时回退为首字母。
 - 如果希望展示 Gravatar 默认头像，请显式传 `d=identicon`/`d=mp` 等参数。
+
+Redis 说明：
+
+- `REDIS_URL` 与 `REDIS_HOST` 二选一；`REDIS_URL` 优先级更高。
+- 使用 `REDIS_HOST` 时可选配 `REDIS_PORT`（默认 `6379`）、`REDIS_USERNAME`、`REDIS_PASSWORD`、`REDIS_DB`。
+- `REDIS_KEY_PREFIX` 用于区分缓存命名空间，默认值为 `mori`。
+- 推荐优先使用 `REDIS_URL`，配置更简单。
+
+`REDIS_URL` 示例（推荐）：
+
+```bash
+# 本地无密码
+REDIS_URL="redis://127.0.0.1:6379"
+
+# 有密码（无用户名）
+REDIS_URL="redis://:your_password@127.0.0.1:6379/0"
+
+# ACL 用户名 + 密码
+REDIS_URL="redis://default:your_password@127.0.0.1:6379/0"
+
+# 云 Redis / TLS
+REDIS_URL="rediss://default:your_password@your-host:6379/0"
+
+REDIS_KEY_PREFIX="mori"
+```
+
+`REDIS_HOST` 拆分模式示例：
+
+```bash
+REDIS_URL=""
+REDIS_HOST="127.0.0.1"
+REDIS_PORT="6379"
+REDIS_USERNAME="default"      # 无用户名可留空
+REDIS_PASSWORD="your_password" # 无密码可留空
+REDIS_DB="0"
+REDIS_KEY_PREFIX="mori"
+```
+
+注意：
+
+- 如果同时配置了 `REDIS_URL` 和 `REDIS_HOST`，系统会优先使用 `REDIS_URL`。
+- 如果密码含有 `@`、`:`、`/`、`?`、`#` 等字符，写在 `REDIS_URL` 时请做 URL 编码（例如 `@` -> `%40`）。
+- 修改 `.env.local` 后请重启应用进程使配置生效。
+
+文章浏览/点赞统计：
+
+- 前端会调用 `/api/post-stats`（Next API）代理到 Typecho Restful 的 `stats/view/like` 接口。
+- 浏览数与点赞数最终同步写入 Typecho `contents` 表中的 `viewsNum`、`likesNum`。
+- 去重基于 Cookie：在 Cookie 未过期前，同一浏览器不重复计数。
+
+Socket.IO 实时同步：
+
+- 服务端在 `POST /api/post-stats` 成功计数后，会广播 `post:counter-updated` 事件。
+- `SOCKET_INTERNAL_TOKEN` 用于保护内部广播桥接接口（`/internal/socket-broadcast`），生产环境建议使用高强度随机值。
+- 房间粒度：
+- `post:<cid>`
+- `post:slug:<slug>`
+- 文章页会自动订阅当前文章房间，收到事件后实时刷新浏览/点赞数字。
 
 ## Typecho Restful 插件要求
 
@@ -87,8 +150,8 @@ TYPECHO_API_BASE_URL="https://your-typecho-site.com/index.php/api"
 | `series` | 否 | 专栏标识 | 值必须精确匹配 `column` 父分类下某个子分类的 `slug`；匹配时显示“所属专栏”卡片与左侧专栏列表，不匹配或为空时不显示。 |
 | `banner` | 否 | 文章头图 | 有值时作为文章头图；无值时回退为正文首图，再回退默认占位图。 |
 | `commentvalue` | 否 | 评论开关 | `0`：隐藏评论区；`2`：显示历史评论但禁止发表评论；其它值或为空：正常显示并允许评论。 |
-| `readCount` | 否 | 阅读数展示位 | 当前仅前端展示占位；有值显示字段值，无值显示 `--`。 |
-| `likeCount` | 否 | 点赞数展示位 | 当前仅前端展示占位；有值显示字段值，无值显示 `--`。 |
+| `readCount` | 否 | 阅读数字段回退 | 已优先使用 Restful 返回的 `viewsNum`；仅在未返回时回退此字段。 |
+| `likeCount` | 否 | 点赞数字段回退 | 已优先使用 Restful 返回的 `likesNum`；仅在未返回时回退此字段。 |
 
 ## 专栏分类约定
 

@@ -13,18 +13,36 @@ interface CommentBody {
   text?: string;
 }
 
-function badRequest(message: string) {
+const READ_CACHE_CONTROL = "public, max-age=30, stale-while-revalidate=120";
+
+function toNoStoreJson(data: unknown, status = 200) {
   return NextResponse.json(
+    data,
     {
-      ok: false,
-      message,
-    },
-    {
-      status: 400,
+      status,
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
       },
     },
+  );
+}
+
+function toReadCachedJson(data: unknown, status = 200) {
+  return NextResponse.json(data, {
+    status,
+    headers: {
+      "Cache-Control": READ_CACHE_CONTROL,
+    },
+  });
+}
+
+function badRequest(message: string) {
+  return toNoStoreJson(
+    {
+      ok: false,
+      message,
+    },
+    400,
   );
 }
 
@@ -51,10 +69,10 @@ export async function GET(request: NextRequest) {
       page,
       pageSize,
       order: "desc",
-      revalidate: false,
+      revalidate: 30,
     });
 
-    return NextResponse.json(
+    return toReadCachedJson(
       {
         ok: true,
         data: {
@@ -67,27 +85,17 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      {
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        },
-      },
     );
   } catch (error) {
     const message = error instanceof TypechoClientError ? error.message : "评论加载失败，请稍后重试。";
     const status = error instanceof TypechoClientError && error.statusCode ? error.statusCode : 500;
 
-    return NextResponse.json(
+    return toNoStoreJson(
       {
         ok: false,
         message,
       },
-      {
-        status,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        },
-      },
+      status,
     );
   }
 }
@@ -142,32 +150,22 @@ export async function POST(request: NextRequest) {
       request.headers.get("user-agent") ?? "Mori-Frontend/1.0",
     );
 
-    return NextResponse.json(
+    return toNoStoreJson(
       {
         ok: true,
         data: result,
-      },
-      {
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        },
       },
     );
   } catch (error) {
     const message = error instanceof TypechoClientError ? error.message : "评论提交失败，请稍后重试。";
     const status = error instanceof TypechoClientError && error.statusCode ? error.statusCode : 500;
 
-    return NextResponse.json(
+    return toNoStoreJson(
       {
         ok: false,
         message,
       },
-      {
-        status,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        },
-      },
+      status,
     );
   }
 }

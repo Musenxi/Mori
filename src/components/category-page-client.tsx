@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CategoryFilter } from "@/components/category-filter";
 import { YearPostGroups } from "@/components/year-post-groups";
@@ -12,6 +12,18 @@ interface CategoryPageClientProps {
   initialCategories: ColumnInfo[];
   initialGroups: YearGroupedPosts[];
   initialActiveSlug: string | null;
+}
+
+interface CategoryDataPayload {
+  categories: ColumnInfo[];
+  groups: YearGroupedPosts[];
+}
+
+const ALL_KEY = "__all__";
+const SLOW_LOADING_DELAY_MS = 1400;
+
+function toCacheKey(slug: string | null) {
+  return slug ?? ALL_KEY;
 }
 
 export function CategoryPageClient({
@@ -25,46 +37,142 @@ export function CategoryPageClient({
   const [animationToken, setAnimationToken] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const cacheRef = useRef<Map<string, CategoryDataPayload>>(new Map());
+  const prefetchingRef = useRef<Set<string>>(new Set());
+  const abortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    cacheRef.current.set(toCacheKey(initialActiveSlug), {
+      categories: initialCategories,
+      groups: initialGroups,
+    });
+  }, [initialActiveSlug, initialCategories, initialGroups]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  const fetchPayload = useCallback(async (slug: string | null, signal?: AbortSignal) => {
+    const query = slug ? `?slug=${encodeURIComponent(slug)}` : "";
+    const response = await fetch(`/api/category-data${query}`, {
+      method: "GET",
+      cache: "force-cache",
+      signal,
+    });
+
+    const result = (await response.json()) as {
+      ok: boolean;
+      message?: string;
+      data?: {
+        categories: ColumnInfo[];
+        groups: YearGroupedPosts[];
+      };
+    };
+
+    if (!response.ok || !result.ok || !result.data) {
+      throw new Error(result.message || "分类数据加载失败。");
+    }
+
+    return result.data;
+  }, []);
+
+  const prefetch = useCallback(
+    async (slug: string | null) => {
+      const cacheKey = toCacheKey(slug);
+      if (cacheRef.current.has(cacheKey) || prefetchingRef.current.has(cacheKey)) {
+        return;
+      }
+
+      prefetchingRef.current.add(cacheKey);
+      try {
+        const data = await fetchPayload(slug);
+        cacheRef.current.set(cacheKey, data);
+      } catch {
+        // Ignore prefetch errors and keep interactive fetch as fallback.
+      } finally {
+        prefetchingRef.current.delete(cacheKey);
+      }
+    },
+    [fetchPayload],
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const topSlugs = categories
+        .map((item) => item.slug)
+        .filter((slug) => slug !== activeSlug)
+        .slice(0, 6);
+
+      topSlugs.forEach((slug) => {
+        void prefetch(slug);
+      });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeSlug, categories, prefetch]);
 
   async function handleSelect(nextSlug: string | null) {
-    if (loading || nextSlug === activeSlug) {
+    if (nextSlug === activeSlug) {
       return;
     }
 
-    setLoading(true);
+    const prevSlug = activeSlug;
+    const cacheKey = toCacheKey(nextSlug);
+    const cached = cacheRef.current.get(cacheKey);
+    setActiveSlug(nextSlug);
     setError("");
 
+    if (cached) {
+      setCategories(cached.categories);
+      setGroups(cached.groups);
+      setAnimationToken((value) => value + 1);
+      const nextUrl = nextSlug ? `/category?slug=${encodeURIComponent(nextSlug)}` : "/category";
+      window.history.replaceState(null, "", nextUrl);
+      return;
+    }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++requestIdRef.current;
+
+    const loadingTimer = window.setTimeout(() => {
+      setLoading(true);
+    }, SLOW_LOADING_DELAY_MS);
+
     try {
-      const query = nextSlug ? `?slug=${encodeURIComponent(nextSlug)}&_t=${Date.now()}` : `?_t=${Date.now()}`;
-      const response = await fetch(`/api/category-data${query}`, {
-        method: "GET",
-        cache: "no-store",
-      });
+      const data = await fetchPayload(nextSlug, controller.signal);
 
-      const result = (await response.json()) as {
-        ok: boolean;
-        message?: string;
-        data?: {
-          categories: ColumnInfo[];
-          groups: YearGroupedPosts[];
-        };
-      };
-
-      if (!response.ok || !result.ok || !result.data) {
-        throw new Error(result.message || "分类数据加载失败。");
+      if (requestId !== requestIdRef.current) {
+        return;
       }
 
-      setActiveSlug(nextSlug);
-      setCategories(result.data.categories);
-      setGroups(result.data.groups);
+      cacheRef.current.set(cacheKey, data);
+      setCategories(data.categories);
+      setGroups(data.groups);
       setAnimationToken((value) => value + 1);
 
       const nextUrl = nextSlug ? `/category?slug=${encodeURIComponent(nextSlug)}` : "/category";
       window.history.replaceState(null, "", nextUrl);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+      setActiveSlug(prevSlug);
       setError(err instanceof Error ? err.message : "分类数据加载失败。");
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        window.clearTimeout(loadingTimer);
+        setLoading(false);
+      }
     }
   }
 
@@ -87,7 +195,9 @@ export function CategoryPageClient({
           categories={categories}
           activeSlug={activeSlug}
           onSelect={handleSelect}
-          disabled={loading}
+          onPrefetch={(slug) => {
+            void prefetch(slug);
+          }}
         />
       </header>
 
@@ -102,15 +212,13 @@ export function CategoryPageClient({
         </p>
       ) : null}
 
-      {!loading ? (
-        groups.length > 0 ? (
-          <YearPostGroups groups={groups} staggered animationToken={animationToken} />
-        ) : (
-          <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "110ms" }}>
-            该分类暂无文章。
-          </p>
-        )
-      ) : null}
+      {groups.length > 0 ? (
+        <YearPostGroups groups={groups} staggered animationToken={animationToken} />
+      ) : (
+        <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "110ms" }}>
+          该分类暂无文章。
+        </p>
+      )}
     </>
   );
 }

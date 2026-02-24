@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { ColumnInfoCard } from "@/components/column-info-card";
 import { Shell } from "@/components/shell";
 import { buildNavItems } from "@/lib/navigation";
 import { getPostDetailData, getSiteContext } from "@/lib/site-data";
+import { getPosts } from "@/lib/typecho-client";
 import { PostBody } from "@/components/article/post-body";
 import { PostHero } from "@/components/article/post-hero";
 import { ColumnDirectory } from "@/components/article/column-directory";
@@ -13,25 +15,37 @@ import { PostNavigation } from "@/components/article/post-navigation";
 import { CommentSection } from "@/components/article/comment-section";
 import { SidePostNavigation } from "@/components/article/side-post-navigation";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 interface PostPageProps {
   params: Promise<{
     slug: string;
   }>;
-  searchParams: Promise<{
-    cpage?: string;
-  }>;
 }
 
-function parseCommentPage(value?: string) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+export async function generateStaticParams() {
+  try {
+    const result = await getPosts({
+      page: 1,
+      pageSize: 240,
+      showDigest: "excerpt",
+      showContent: false,
+      limit: 240,
+      revalidate: 300,
+    });
+
+    return result.dataSet
+      .map((post) => String(post.slug || "").trim())
+      .filter((slug) => slug.length > 0)
+      .map((slug) => ({ slug }));
+  } catch {
+    return [] as Array<{ slug: string }>;
+  }
 }
 
-export default async function PostPage({ params, searchParams }: PostPageProps) {
+export default async function PostPage({ params }: PostPageProps) {
   const { slug } = await params;
-  const commentPage = parseCommentPage((await searchParams).cpage);
+  const commentPage = 1;
 
   const context = await getSiteContext();
   const navItems = buildNavItems(context);
@@ -103,12 +117,14 @@ export default async function PostPage({ params, searchParams }: PostPageProps) 
 
               {detail.post.commentValue !== 0 ? (
                 <section className="mori-stagger-item" style={{ animationDelay: "190ms" }}>
-                  <CommentSection
-                    slug={detail.post.slug}
-                    comments={detail.comments}
-                    disableForm={detail.post.commentValue === 2}
-                    pagination={detail.commentsPagination}
-                  />
+                  <Suspense fallback={null}>
+                    <CommentSection
+                      slug={detail.post.slug}
+                      comments={detail.comments}
+                      disableForm={detail.post.commentValue === 2}
+                      pagination={detail.commentsPagination}
+                    />
+                  </Suspense>
                 </section>
               ) : null}
             </div>

@@ -9,16 +9,18 @@ import {
   TypechoMeta,
   TypechoPageItem,
   TypechoPagesResponse,
+  TypechoPostCounter,
   TypechoPostRaw,
   TypechoPostsResponse,
   TypechoSettings,
 } from "./typecho-types";
+import { getRedisJson, setRedisJson } from "./redis-client";
 
 const RAW_API_BASE =
   process.env.TYPECHO_API_BASE_URL ?? process.env.NEXT_PUBLIC_TYPECHO_API_BASE_URL ?? "";
 const API_BASE = RAW_API_BASE.replace(/\/+$/, "");
 const API_TOKEN = process.env.TYPECHO_API_TOKEN ?? "";
-const DEFAULT_REVALIDATE = Number(process.env.TYPECHO_REVALIDATE_SECONDS ?? "90");
+const DEFAULT_REVALIDATE = parsePositiveInt(process.env.TYPECHO_REVALIDATE_SECONDS, 90) ?? 90;
 
 function parsePositiveInt(raw: string | undefined, fallback?: number) {
   if (typeof raw !== "string" || raw.trim() === "") {
@@ -103,6 +105,48 @@ function makeUrl(path: string, query?: Record<string, Primitive>) {
   return url.toString();
 }
 
+function readSetCookies(headers: Headers) {
+  const nodeHeaders = headers as Headers & { getSetCookie?: () => string[] };
+  if (typeof nodeHeaders.getSetCookie === "function") {
+    return nodeHeaders.getSetCookie();
+  }
+
+  const fallback = headers.get("set-cookie");
+  return fallback ? [fallback] : [];
+}
+
+function normalizeRevalidate(revalidate: number | false) {
+  if (revalidate === false) {
+    return false;
+  }
+
+  if (Number.isFinite(revalidate) && revalidate > 0) {
+    return Math.floor(revalidate);
+  }
+
+  return DEFAULT_REVALIDATE;
+}
+
+function makeRedisCacheKey(
+  method: "GET" | "POST",
+  path: string,
+  query?: Record<string, Primitive>,
+) {
+  const normalizedPath = path.replace(/^\/+/, "");
+  const sortedQuery = Object.entries(query ?? {})
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .map(([key, value]) => {
+      if (typeof value === "boolean") {
+        return [key, value ? "true" : "false"] as const;
+      }
+      return [key, String(value)] as const;
+    })
+    .sort(([left], [right]) => left.localeCompare(right));
+
+  const queryString = sortedQuery.map(([key, value]) => `${key}=${value}`).join("&");
+  return `typecho:${API_BASE}:${method}:${normalizedPath}?${queryString}`;
+}
+
 async function requestTypecho<T>(
   path: string,
   {
@@ -115,6 +159,18 @@ async function requestTypecho<T>(
   }: RequestTypechoOptions = {},
 ): Promise<T> {
   ensureConfigured();
+  const effectiveRevalidate = normalizeRevalidate(revalidate);
+  const shouldUseRedis = method === "GET" && effectiveRevalidate !== false;
+  const redisCacheKey = shouldUseRedis
+    ? makeRedisCacheKey(method, path, query)
+    : undefined;
+
+  if (redisCacheKey) {
+    const cached = await getRedisJson<T>(redisCacheKey);
+    if (cached !== undefined) {
+      return cached;
+    }
+  }
 
   const requestHeaders = new Headers(headers);
   requestHeaders.set("Accept", "application/json");
@@ -135,8 +191,8 @@ async function requestTypecho<T>(
     method,
     headers: requestHeaders,
     body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
-    cache: revalidate === false ? "no-store" : "force-cache",
-    ...(revalidate === false ? {} : { next: { revalidate } }),
+    cache: effectiveRevalidate === false ? "no-store" : "force-cache",
+    ...(effectiveRevalidate === false ? {} : { next: { revalidate: effectiveRevalidate } }),
   });
 
   const rawText = await response.text();
@@ -158,7 +214,70 @@ async function requestTypecho<T>(
     throw new TypechoClientError(payload.message || `Typecho API 请求失败（HTTP ${response.status}）。`, response.status);
   }
 
+  if (redisCacheKey && effectiveRevalidate !== false) {
+    await setRedisJson(redisCacheKey, payload.data, effectiveRevalidate);
+  }
+
   return payload.data;
+}
+
+async function requestTypechoWithSetCookie<T>(
+  path: string,
+  {
+    method = "GET",
+    query,
+    body,
+    headers,
+    userAgent,
+  }: Omit<RequestTypechoOptions, "revalidate"> = {},
+): Promise<{ data: T; setCookies: string[] }> {
+  ensureConfigured();
+
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set("Accept", "application/json");
+
+  if (API_TOKEN) {
+    requestHeaders.set("token", API_TOKEN);
+  }
+
+  if (method === "POST") {
+    requestHeaders.set("Content-Type", "application/json");
+  }
+
+  if (userAgent) {
+    requestHeaders.set("User-Agent", userAgent);
+  }
+
+  const response = await fetch(makeUrl(path, query), {
+    method,
+    headers: requestHeaders,
+    body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
+    cache: "no-store",
+  });
+
+  const rawText = await response.text();
+  let payload: TypechoEnvelope<T> | null = null;
+
+  try {
+    payload = JSON.parse(rawText) as TypechoEnvelope<T>;
+  } catch {
+    const summary = summarizeNonJsonBody(rawText);
+    const hint = summary ? `：${summary}` : "";
+    throw new TypechoClientError(`Typecho API 返回了非 JSON 响应（HTTP ${response.status}）${hint}`, response.status);
+  }
+
+  if (!payload) {
+    throw new TypechoClientError("Typecho API 返回了空响应。", response.status);
+  }
+
+  if (!response.ok || payload.status !== "success") {
+    throw new TypechoClientError(payload.message || `Typecho API 请求失败（HTTP ${response.status}）。`, response.status);
+  }
+
+  return {
+    data: payload.data,
+    setCookies: readSetCookies(response.headers),
+  };
 }
 
 export async function getSettings(): Promise<TypechoSettings> {
@@ -341,5 +460,70 @@ export async function createComment(
     },
     revalidate: false,
     userAgent,
+  });
+}
+
+interface PostCounterRequestTarget {
+  cid?: number;
+  slug?: string;
+}
+
+interface PostCounterRequestOptions extends PostCounterRequestTarget {
+  cookieHeader?: string;
+  userAgent?: string;
+}
+
+function buildCounterTarget(target: PostCounterRequestTarget) {
+  return {
+    cid: Number.isFinite(Number(target.cid)) ? Number(target.cid) : undefined,
+    slug: target.slug?.trim() || undefined,
+  };
+}
+
+export async function getPostCounterStats(
+  options: PostCounterRequestOptions,
+): Promise<{ data: TypechoPostCounter; setCookies: string[] }> {
+  const target = buildCounterTarget(options);
+  if (!target.cid && !target.slug) {
+    throw new TypechoClientError("缺少文章 cid 或 slug。", 400);
+  }
+
+  return requestTypechoWithSetCookie<TypechoPostCounter>("stats", {
+    method: "GET",
+    query: target,
+    headers: options.cookieHeader ? { Cookie: options.cookieHeader } : undefined,
+    userAgent: options.userAgent,
+  });
+}
+
+export async function recordPostView(
+  options: PostCounterRequestOptions,
+): Promise<{ data: TypechoPostCounter; setCookies: string[] }> {
+  const target = buildCounterTarget(options);
+  if (!target.cid && !target.slug) {
+    throw new TypechoClientError("缺少文章 cid 或 slug。", 400);
+  }
+
+  return requestTypechoWithSetCookie<TypechoPostCounter>("view", {
+    method: "POST",
+    body: target,
+    headers: options.cookieHeader ? { Cookie: options.cookieHeader } : undefined,
+    userAgent: options.userAgent,
+  });
+}
+
+export async function recordPostLike(
+  options: PostCounterRequestOptions,
+): Promise<{ data: TypechoPostCounter; setCookies: string[] }> {
+  const target = buildCounterTarget(options);
+  if (!target.cid && !target.slug) {
+    throw new TypechoClientError("缺少文章 cid 或 slug。", 400);
+  }
+
+  return requestTypechoWithSetCookie<TypechoPostCounter>("like", {
+    method: "POST",
+    body: target,
+    headers: options.cookieHeader ? { Cookie: options.cookieHeader } : undefined,
+    userAgent: options.userAgent,
   });
 }

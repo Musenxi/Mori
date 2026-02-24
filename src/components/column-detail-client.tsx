@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ColumnInfoCard } from "@/components/column-info-card";
 import { YearPostGroups } from "@/components/year-post-groups";
@@ -16,6 +16,13 @@ interface ColumnDetailClientProps {
   initialGroups: YearGroupedPosts[];
 }
 
+interface ColumnDetailPayload {
+  column: ColumnInfo;
+  groups: YearGroupedPosts[];
+}
+
+const SLOW_LOADING_DELAY_MS = 1400;
+
 export function ColumnDetailClient({
   columns,
   initialSlug,
@@ -28,43 +35,136 @@ export function ColumnDetailClient({
   const [animationToken, setAnimationToken] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const cacheRef = useRef<Map<string, ColumnDetailPayload>>(new Map());
+  const prefetchingRef = useRef<Set<string>>(new Set());
+  const abortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    cacheRef.current.set(initialSlug, {
+      column: initialColumn,
+      groups: initialGroups,
+    });
+  }, [initialSlug, initialColumn, initialGroups]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  const fetchPayload = useCallback(async (slug: string, signal?: AbortSignal) => {
+    const response = await fetch(`/api/column-detail?slug=${encodeURIComponent(slug)}`, {
+      method: "GET",
+      cache: "force-cache",
+      signal,
+    });
+
+    const result = (await response.json()) as {
+      ok: boolean;
+      message?: string;
+      data?: {
+        column: ColumnInfo;
+        groups: YearGroupedPosts[];
+      };
+    };
+
+    if (!response.ok || !result.ok || !result.data) {
+      throw new Error(result.message || "专栏数据加载失败。");
+    }
+
+    return result.data;
+  }, []);
+
+  const prefetch = useCallback(
+    async (slug: string) => {
+      if (cacheRef.current.has(slug) || prefetchingRef.current.has(slug) || slug === activeSlug) {
+        return;
+      }
+
+      prefetchingRef.current.add(slug);
+      try {
+        const data = await fetchPayload(slug);
+        cacheRef.current.set(slug, data);
+      } catch {
+        // Ignore prefetch errors and keep interactive fetch as fallback.
+      } finally {
+        prefetchingRef.current.delete(slug);
+      }
+    },
+    [activeSlug, fetchPayload],
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const topSlugs = columns
+        .map((item) => item.slug)
+        .filter((slug) => slug !== activeSlug)
+        .slice(0, 6);
+
+      topSlugs.forEach((slug) => {
+        void prefetch(slug);
+      });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeSlug, columns, prefetch]);
 
   async function handleSwitch(nextSlug: string) {
-    if (loading || !nextSlug || nextSlug === activeSlug) {
+    if (!nextSlug || nextSlug === activeSlug) {
       return;
     }
 
-    setLoading(true);
+    const prevSlug = activeSlug;
+    const cached = cacheRef.current.get(nextSlug);
+    setActiveSlug(nextSlug);
     setError("");
 
+    if (cached) {
+      setColumn(cached.column);
+      setGroups(cached.groups);
+      setAnimationToken((value) => value + 1);
+      window.history.replaceState(null, "", `/column/${encodeURIComponent(nextSlug)}`);
+      return;
+    }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++requestIdRef.current;
+
+    const loadingTimer = window.setTimeout(() => {
+      setLoading(true);
+    }, SLOW_LOADING_DELAY_MS);
+
     try {
-      const response = await fetch(`/api/column-detail?slug=${encodeURIComponent(nextSlug)}&_t=${Date.now()}`, {
-        method: "GET",
-        cache: "no-store",
-      });
+      const data = await fetchPayload(nextSlug, controller.signal);
 
-      const result = (await response.json()) as {
-        ok: boolean;
-        message?: string;
-        data?: {
-          column: ColumnInfo;
-          groups: YearGroupedPosts[];
-        };
-      };
-
-      if (!response.ok || !result.ok || !result.data) {
-        throw new Error(result.message || "专栏数据加载失败。");
+      if (requestId !== requestIdRef.current) {
+        return;
       }
 
-      setActiveSlug(nextSlug);
-      setColumn(result.data.column);
-      setGroups(result.data.groups);
+      cacheRef.current.set(nextSlug, data);
+      setColumn(data.column);
+      setGroups(data.groups);
       setAnimationToken((value) => value + 1);
       window.history.replaceState(null, "", `/column/${encodeURIComponent(nextSlug)}`);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+      setActiveSlug(prevSlug);
       setError(err instanceof Error ? err.message : "专栏数据加载失败。");
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        window.clearTimeout(loadingTimer);
+        setLoading(false);
+      }
     }
   }
 
@@ -93,11 +193,15 @@ export function ColumnDetailClient({
                 key={item.slug}
                 type="button"
                 onClick={() => void handleSwitch(item.slug)}
-                disabled={loading}
+                onMouseEnter={() => {
+                  void prefetch(item.slug);
+                }}
+                onFocus={() => {
+                  void prefetch(item.slug);
+                }}
                 className={cn(
                   "inline-flex items-center rounded-full px-4 py-1.5 font-sans text-sm transition-colors",
                   item.slug === activeSlug ? "bg-primary text-bg" : "bg-tag text-secondary hover:bg-hover",
-                  loading && "cursor-not-allowed opacity-60",
                 )}
               >
                 {item.name}
@@ -115,15 +219,13 @@ export function ColumnDetailClient({
       </div>
       <div className="mori-stagger-item h-px w-full bg-border" style={{ animationDelay: "120ms" }} />
 
-      {!loading ? (
-        groups.length > 0 ? (
-          <YearPostGroups groups={groups} staggered animationToken={animationToken} />
-        ) : (
-          <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "150ms" }}>
-            该专栏暂无文章。
-          </p>
-        )
-      ) : null}
+      {groups.length > 0 ? (
+        <YearPostGroups groups={groups} staggered animationToken={animationToken} />
+      ) : (
+        <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "150ms" }}>
+          该专栏暂无文章。
+        </p>
+      )}
     </section>
   );
 }

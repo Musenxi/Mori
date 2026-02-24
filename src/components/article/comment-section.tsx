@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CommentForm, ReplyTarget } from "@/components/article/comment-form";
 import { CommentList } from "@/components/article/comment-list";
@@ -31,6 +31,11 @@ function buildPageList(current: number, total: number) {
   return [...pages].sort((a, b) => a - b);
 }
 
+function parsePositivePage(value: string | null | undefined) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
 export function CommentSection({
   slug,
   comments,
@@ -45,6 +50,7 @@ export function CommentSection({
   const [feedback, setFeedback] = useState("");
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const syncedQueryPageRef = useRef<number | null>(null);
 
   const pageSize = useMemo(() => currentPagination?.pageSize || pagination?.pageSize || 10, [currentPagination, pagination]);
 
@@ -53,61 +59,88 @@ export function CommentSection({
     setCurrentPagination(pagination);
     setReplyTarget(null);
     setFeedback("");
+    syncedQueryPageRef.current = null;
   }, [slug, comments, pagination]);
 
-  function buildPageUrl(page: number) {
+  const buildPageUrl = useCallback((page: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set(pageQueryKey, String(page));
     return `${pathname}?${params.toString()}#comment-section`;
-  }
+  }, [pageQueryKey, pathname, searchParams]);
 
-  async function refreshComments(
-    page: number,
-    options?: { preserveExistingOnEmpty?: boolean },
-  ): Promise<{ ok: boolean; commentCount: number }> {
-    if (loadingPage) {
-      return { ok: false, commentCount: currentComments.length };
-    }
+  const refreshComments = useCallback(
+    async (
+      page: number,
+      options?: { preserveExistingOnEmpty?: boolean },
+    ): Promise<{ ok: boolean; commentCount: number }> => {
+      if (loadingPage) {
+        return { ok: false, commentCount: currentComments.length };
+      }
 
-    setLoadingPage(true);
-    setFeedback("");
+      setLoadingPage(true);
+      setFeedback("");
 
-    try {
-      const response = await fetch(
-        `/api/comments?slug=${encodeURIComponent(slug)}&page=${page}&pageSize=${pageSize}&_t=${Date.now()}`,
-        { method: "GET", cache: "no-store" },
-      );
+      try {
+        const response = await fetch(
+          `/api/comments?slug=${encodeURIComponent(slug)}&page=${page}&pageSize=${pageSize}`,
+          { method: "GET", cache: "force-cache" },
+        );
 
-      const result = (await response.json()) as {
-        ok: boolean;
-        message?: string;
-        data?: {
-          comments: NormalizedComment[];
-          pagination: CommentPagination;
+        const result = (await response.json()) as {
+          ok: boolean;
+          message?: string;
+          data?: {
+            comments: NormalizedComment[];
+            pagination: CommentPagination;
+          };
         };
-      };
 
-      if (!response.ok || !result.ok || !result.data) {
-        throw new Error(result.message || "评论加载失败，请稍后重试。");
-      }
+        if (!response.ok || !result.ok || !result.data) {
+          throw new Error(result.message || "评论加载失败，请稍后重试。");
+        }
 
-      const payload = result.data;
-      const nextCommentCount = payload.comments.length;
-      if (options?.preserveExistingOnEmpty && payload.comments.length === 0) {
-        setCurrentComments((prev) => (prev.length > 0 ? prev : payload.comments));
-      } else {
-        setCurrentComments(payload.comments);
+        const payload = result.data;
+        const nextCommentCount = payload.comments.length;
+        if (options?.preserveExistingOnEmpty && payload.comments.length === 0) {
+          setCurrentComments((prev) => (prev.length > 0 ? prev : payload.comments));
+        } else {
+          setCurrentComments(payload.comments);
+        }
+        setCurrentPagination(payload.pagination);
+        window.history.replaceState(null, "", buildPageUrl(payload.pagination.page));
+        return { ok: true, commentCount: nextCommentCount };
+      } catch (error) {
+        setFeedback(error instanceof Error ? error.message : "评论加载失败，请稍后重试。");
+        return { ok: false, commentCount: currentComments.length };
+      } finally {
+        setLoadingPage(false);
       }
-      setCurrentPagination(payload.pagination);
-      window.history.replaceState(null, "", buildPageUrl(payload.pagination.page));
-      return { ok: true, commentCount: nextCommentCount };
-    } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "评论加载失败，请稍后重试。");
-      return { ok: false, commentCount: currentComments.length };
-    } finally {
-      setLoadingPage(false);
+    },
+    [buildPageUrl, currentComments.length, loadingPage, pageSize, slug],
+  );
+
+  useEffect(() => {
+    if (!currentPagination) {
+      return;
     }
-  }
+
+    const queryPage = parsePositivePage(searchParams.get(pageQueryKey));
+    if (queryPage <= 1 || queryPage > currentPagination.pages) {
+      return;
+    }
+
+    if (queryPage === currentPagination.page) {
+      syncedQueryPageRef.current = queryPage;
+      return;
+    }
+
+    if (syncedQueryPageRef.current === queryPage) {
+      return;
+    }
+
+    syncedQueryPageRef.current = queryPage;
+    void refreshComments(queryPage, { preserveExistingOnEmpty: true });
+  }, [currentPagination, pageQueryKey, refreshComments, searchParams]);
 
   function handleReply(target: ReplyTarget) {
     if (disableForm) {

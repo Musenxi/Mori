@@ -33,6 +33,8 @@ export interface TypechoPostRaw {
   created: number;
   modified?: number;
   commentsNum?: number;
+  viewsNum?: number;
+  likesNum?: number;
   type?: "post" | "page" | string;
   text?: string;
   digest?: string;
@@ -112,6 +114,23 @@ export interface TypechoRecentCommentsResponse {
     author: string;
     text: string;
   }>;
+}
+
+export interface TypechoPostCounter {
+  cid: number;
+  slug: string;
+  viewsNum: number;
+  likesNum: number;
+  viewed: boolean;
+  liked: boolean;
+  counted?: boolean;
+}
+
+export interface PostCounterRealtimePayload {
+  cid: number;
+  slug: string;
+  viewsNum: number;
+  likesNum: number;
 }
 
 export interface NormalizedPost {

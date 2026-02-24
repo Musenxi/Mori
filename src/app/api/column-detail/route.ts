@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getColumnDetailData } from "@/lib/site-data";
 
-function toNoStoreJson(data: unknown, status = 200) {
+function toJson(data: unknown, status = 200) {
   return NextResponse.json(data, {
     status,
     headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "Cache-Control": "public, max-age=30, stale-while-revalidate=120",
     },
   });
 }
@@ -14,7 +14,7 @@ function toNoStoreJson(data: unknown, status = 200) {
 export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("slug")?.trim() || "";
   if (!slug) {
-    return toNoStoreJson(
+    return toJson(
       {
         ok: false,
         message: "缺少专栏 slug。",
@@ -25,13 +25,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const data = await getColumnDetailData(slug);
-    return toNoStoreJson({
+    return toJson({
       ok: true,
       data,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "专栏数据加载失败。";
-    return toNoStoreJson(
+    return toJson(
       {
         ok: false,
         message,

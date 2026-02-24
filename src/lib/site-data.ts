@@ -404,12 +404,20 @@ function countArticleCharacters(html: string) {
   return plainText.replace(/\s+/g, "").length;
 }
 
+function normalizeCounterLabel(raw: unknown, fallback = "--") {
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed) && parsed >= 0) {
+    return String(Math.floor(parsed));
+  }
+  return fallback;
+}
+
 export async function getPostDetailData(
   slug: string,
   commentPage = 1,
   commentPageSize = DEFAULT_COMMENT_PAGE_SIZE,
 ) {
-  const rawPost = await getPostBySlug(slug, false);
+  const rawPost = await getPostBySlug(slug, 60);
   const post = normalizePost(rawPost);
 
   const [comments, archives, categories] = await Promise.all([
@@ -426,9 +434,9 @@ export async function getPostDetailData(
         page: commentPage,
         pageSize: commentPageSize,
         order: "desc",
-        revalidate: false,
+        revalidate: 30,
       }),
-    getArchives({ showDigest: "excerpt", limit: 92, showContent: true, order: "desc", revalidate: false }),
+    getArchives({ showDigest: "excerpt", limit: 92, showContent: true, order: "desc", revalidate: 60 }),
     getCategories(),
   ]);
 
@@ -444,9 +452,15 @@ export async function getPostDetailData(
       ? rawFields.banner.value.trim()
       : undefined;
   const readCount =
-    (typeof rawFields.readCount?.value === "string" && rawFields.readCount.value.trim()) || "--";
+    normalizeCounterLabel(
+      rawPost.viewsNum,
+      (typeof rawFields.readCount?.value === "string" && rawFields.readCount.value.trim()) || "--",
+    );
   const likeCount =
-    (typeof rawFields.likeCount?.value === "string" && rawFields.likeCount.value.trim()) || "--";
+    normalizeCounterLabel(
+      rawPost.likesNum,
+      (typeof rawFields.likeCount?.value === "string" && rawFields.likeCount.value.trim()) || "--",
+    );
   const wordCount = countArticleCharacters(article.html);
 
   const seriesSlug = (post.seriesSlug || "").trim();
@@ -508,7 +522,7 @@ export async function getStaticPageDetailBySlug(
           page: commentPage,
           pageSize: commentPageSize,
           order: "desc",
-          revalidate: false,
+          revalidate: 30,
         });
 
     return {

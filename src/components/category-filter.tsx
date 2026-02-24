@@ -7,6 +7,7 @@ interface CategoryFilterProps {
   categories: ColumnInfo[];
   activeSlug: string | null;
   onSelect?: (slug: string | null) => void;
+  onPrefetch?: (slug: string | null) => void;
   disabled?: boolean;
 }
 
@@ -15,12 +16,14 @@ function FilterChip({
   active,
   label,
   onClick,
+  onPrefetch,
   disabled = false,
 }: {
   href: string;
   active: boolean;
   label: string;
   onClick?: () => void;
+  onPrefetch?: () => void;
   disabled?: boolean;
 }) {
   const className = cn(
@@ -34,6 +37,8 @@ function FilterChip({
       <button
         type="button"
         onClick={onClick}
+        onMouseEnter={onPrefetch}
+        onFocus={onPrefetch}
         disabled={disabled}
         className={className}
       >
@@ -43,13 +48,13 @@ function FilterChip({
   }
 
   return (
-    <Link href={href} className={className}>
+    <Link href={href} className={className} onMouseEnter={onPrefetch} onFocus={onPrefetch}>
       {label}
     </Link>
   );
 }
 
-export function CategoryFilter({ categories, activeSlug, onSelect, disabled = false }: CategoryFilterProps) {
+export function CategoryFilter({ categories, activeSlug, onSelect, onPrefetch, disabled = false }: CategoryFilterProps) {
   return (
     <div className="flex flex-wrap gap-3">
       <FilterChip
@@ -57,6 +62,7 @@ export function CategoryFilter({ categories, activeSlug, onSelect, disabled = fa
         active={!activeSlug}
         label="全部"
         onClick={onSelect ? () => onSelect(null) : undefined}
+        onPrefetch={onPrefetch ? () => onPrefetch(null) : undefined}
         disabled={disabled}
       />
       {categories.map((category) => (
@@ -66,6 +72,7 @@ export function CategoryFilter({ categories, activeSlug, onSelect, disabled = fa
           active={activeSlug === category.slug}
           label={category.name}
           onClick={onSelect ? () => onSelect(category.slug) : undefined}
+          onPrefetch={onPrefetch ? () => onPrefetch(category.slug) : undefined}
           disabled={disabled}
         />
       ))}
