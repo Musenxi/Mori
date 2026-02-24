@@ -86,7 +86,6 @@ export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitt
         throw new Error(result.message || "评论提交失败，请稍后重试。");
       }
 
-      setFeedback("评论已提交，感谢你的分享。若开启审核，管理员通过后会展示。");
       setForm(INITIAL_FORM);
       await onSubmitted?.();
     } catch (error) {

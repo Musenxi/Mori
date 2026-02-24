@@ -53,7 +53,6 @@ export function CommentSection({
   const syncedQueryPageRef = useRef<number | null>(null);
   const loadingPageRef = useRef(false);
   const currentCommentCountRef = useRef(comments.length);
-  const freshSyncedKeyRef = useRef("");
   const queryPageValue = searchParams.get(pageQueryKey);
 
   const pageSize = useMemo(() => currentPagination?.pageSize || pagination?.pageSize || 10, [currentPagination, pagination]);
@@ -73,13 +72,18 @@ export function CommentSection({
     setFeedback("");
     syncedQueryPageRef.current = null;
     currentCommentCountRef.current = comments.length;
-    freshSyncedKeyRef.current = "";
   }, [slug, comments, pagination]);
 
   const buildPageUrl = useCallback((page: number) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set(pageQueryKey, String(page));
-    return `${pathname}?${params.toString()}#comment-section`;
+    if (page <= 1) {
+      params.delete(pageQueryKey);
+    } else {
+      params.set(pageQueryKey, String(page));
+    }
+
+    const query = params.toString();
+    return query ? `${pathname}?${query}` : pathname;
   }, [pageQueryKey, pathname, searchParams]);
 
   const refreshComments = useCallback(
@@ -145,19 +149,6 @@ export function CommentSection({
     },
     [buildPageUrl, pageSize, slug],
   );
-
-  useEffect(() => {
-    const queryPage = parsePositivePage(queryPageValue);
-    const pageCount = Math.max(1, currentPagination?.pages ?? 1);
-    const targetPage = Math.min(Math.max(queryPage, 1), pageCount);
-    const refreshKey = `${slug}:${targetPage}`;
-    if (freshSyncedKeyRef.current === refreshKey) {
-      return;
-    }
-
-    freshSyncedKeyRef.current = refreshKey;
-    void refreshComments(targetPage, { preserveExistingOnEmpty: true, fresh: true });
-  }, [currentPagination?.pages, queryPageValue, refreshComments, slug]);
 
   useEffect(() => {
     if (!currentPagination) {
