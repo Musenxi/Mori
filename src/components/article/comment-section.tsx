@@ -51,8 +51,20 @@ export function CommentSection({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const syncedQueryPageRef = useRef<number | null>(null);
+  const loadingPageRef = useRef(false);
+  const currentCommentCountRef = useRef(comments.length);
+  const freshSyncedKeyRef = useRef("");
+  const queryPageValue = searchParams.get(pageQueryKey);
 
   const pageSize = useMemo(() => currentPagination?.pageSize || pagination?.pageSize || 10, [currentPagination, pagination]);
+
+  useEffect(() => {
+    currentCommentCountRef.current = currentComments.length;
+  }, [currentComments.length]);
+
+  useEffect(() => {
+    loadingPageRef.current = loadingPage;
+  }, [loadingPage]);
 
   useEffect(() => {
     setCurrentComments(comments);
@@ -60,6 +72,8 @@ export function CommentSection({
     setReplyTarget(null);
     setFeedback("");
     syncedQueryPageRef.current = null;
+    currentCommentCountRef.current = comments.length;
+    freshSyncedKeyRef.current = "";
   }, [slug, comments, pagination]);
 
   const buildPageUrl = useCallback((page: number) => {
@@ -73,10 +87,11 @@ export function CommentSection({
       page: number,
       options?: { preserveExistingOnEmpty?: boolean; fresh?: boolean },
     ): Promise<{ ok: boolean; commentCount: number }> => {
-      if (loadingPage) {
-        return { ok: false, commentCount: currentComments.length };
+      if (loadingPageRef.current) {
+        return { ok: false, commentCount: currentCommentCountRef.current };
       }
 
+      loadingPageRef.current = true;
       setLoadingPage(true);
       setFeedback("");
 
@@ -116,25 +131,40 @@ export function CommentSection({
         } else {
           setCurrentComments(payload.comments);
         }
+        currentCommentCountRef.current = nextCommentCount;
         setCurrentPagination(payload.pagination);
         window.history.replaceState(null, "", buildPageUrl(payload.pagination.page));
         return { ok: true, commentCount: nextCommentCount };
       } catch (error) {
         setFeedback(error instanceof Error ? error.message : "评论加载失败，请稍后重试。");
-        return { ok: false, commentCount: currentComments.length };
+        return { ok: false, commentCount: currentCommentCountRef.current };
       } finally {
+        loadingPageRef.current = false;
         setLoadingPage(false);
       }
     },
-    [buildPageUrl, currentComments.length, loadingPage, pageSize, slug],
+    [buildPageUrl, pageSize, slug],
   );
+
+  useEffect(() => {
+    const queryPage = parsePositivePage(queryPageValue);
+    const pageCount = Math.max(1, currentPagination?.pages ?? 1);
+    const targetPage = Math.min(Math.max(queryPage, 1), pageCount);
+    const refreshKey = `${slug}:${targetPage}`;
+    if (freshSyncedKeyRef.current === refreshKey) {
+      return;
+    }
+
+    freshSyncedKeyRef.current = refreshKey;
+    void refreshComments(targetPage, { preserveExistingOnEmpty: true, fresh: true });
+  }, [currentPagination?.pages, queryPageValue, refreshComments, slug]);
 
   useEffect(() => {
     if (!currentPagination) {
       return;
     }
 
-    const queryPage = parsePositivePage(searchParams.get(pageQueryKey));
+    const queryPage = parsePositivePage(queryPageValue);
     if (queryPage <= 1 || queryPage > currentPagination.pages) {
       return;
     }
@@ -150,7 +180,7 @@ export function CommentSection({
 
     syncedQueryPageRef.current = queryPage;
     void refreshComments(queryPage, { preserveExistingOnEmpty: true });
-  }, [currentPagination, pageQueryKey, refreshComments, searchParams]);
+  }, [currentPagination, queryPageValue, refreshComments]);
 
   function handleReply(target: ReplyTarget) {
     if (disableForm) {
