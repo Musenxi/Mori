@@ -5,7 +5,7 @@
   font-family: var(--font-noto-serif-sc, "Songti SC", "Noto Serif CJK SC", serif);
 }
 
-.prose-article > * {
+.prose-article>* {
   margin-top: 0;
   margin-bottom: 0;
 }
@@ -34,26 +34,26 @@
   list-style: decimal outside;
 }
 
-.prose-article li + li {
+.prose-article li+li {
   margin-top: 8px;
 }
 
-.prose-article li > ul,
-.prose-article li > ol {
+.prose-article li>ul,
+.prose-article li>ol {
   margin-top: 10px;
 }
 
-.prose-article p + p,
-.prose-article p + ul,
-.prose-article p + ol,
-.prose-article p + blockquote,
-.prose-article ul + p,
-.prose-article ol + p,
-.prose-article blockquote + p,
-.prose-article h1 + p,
-.prose-article h2 + p,
-.prose-article h3 + p,
-.prose-article h4 + p {
+.prose-article p+p,
+.prose-article p+ul,
+.prose-article p+ol,
+.prose-article p+blockquote,
+.prose-article ul+p,
+.prose-article ol+p,
+.prose-article blockquote+p,
+.prose-article h1+p,
+.prose-article h2+p,
+.prose-article h3+p,
+.prose-article h4+p {
   margin-top: 24px;
 }
 
@@ -106,10 +106,10 @@
 
 .prose-article table {
   margin-top: 24px;
-  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
   max-width: 100%;
   border-collapse: collapse;
-  display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -118,7 +118,7 @@
 .prose-article td {
   border: 1px solid var(--border);
   padding: 8px 10px;
-  text-align: left;
+  text-align: center;
 }
 
 .prose-comment p {
@@ -152,6 +152,7 @@
 }
 
 @media (min-width: 768px) {
+
   .prose-article p,
   .prose-article li {
     font-size: 18px;
