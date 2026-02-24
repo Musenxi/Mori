@@ -58,8 +58,32 @@ function buildPresenceRoom(target) {
   return "";
 }
 
+function normalizeViewerId(rawValue) {
+  if (typeof rawValue !== "string") {
+    return "";
+  }
+
+  const value = rawValue.trim();
+  if (!value) {
+    return "";
+  }
+
+  return value.slice(0, 128);
+}
+
+function getSocketViewerId(socket) {
+  const viewerId = typeof socket?.data?.viewerId === "string" ? socket.data.viewerId : "";
+  return viewerId || socket.id;
+}
+
 function getOnlineCount(io) {
-  return io.of("/").sockets.size;
+  const viewers = new Set();
+
+  io.of("/").sockets.forEach((activeSocket) => {
+    viewers.add(getSocketViewerId(activeSocket));
+  });
+
+  return viewers.size;
 }
 
 function emitOnlinePresence(io) {
@@ -73,7 +97,19 @@ function emitPostReadingPresence(io, room, target) {
     return;
   }
 
-  const count = io.sockets.adapter.rooms.get(room)?.size ?? 0;
+  const roomSockets = io.sockets.adapter.rooms.get(room);
+  const viewers = new Set();
+
+  roomSockets?.forEach((socketId) => {
+    const roomSocket = io.of("/").sockets.get(socketId);
+    if (!roomSocket) {
+      return;
+    }
+
+    viewers.add(getSocketViewerId(roomSocket));
+  });
+
+  const count = viewers.size;
   io.to(room).emit(PRESENCE_POST_READING_EVENT, {
     cid: target.cid ?? null,
     slug: target.slug ?? null,
@@ -166,6 +202,9 @@ app
     });
 
     io.on("connection", (socket) => {
+      const authViewerId = normalizeViewerId(socket.handshake?.auth?.viewerId);
+      const queryViewerId = normalizeViewerId(socket.handshake?.query?.viewerId);
+      socket.data.viewerId = authViewerId || queryViewerId || socket.id;
       socket.data.presenceRoom = null;
       socket.data.presenceTarget = null;
       emitOnlinePresence(io);
