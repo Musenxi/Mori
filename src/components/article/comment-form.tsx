@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export interface ReplyTarget {
@@ -31,10 +31,16 @@ const INITIAL_FORM: FormState = {
 
 export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitted }: CommentFormProps) {
   const router = useRouter();
+  const formId = useId().replace(/:/g, "");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string>("");
+
+  const authorId = `comment-${formId}-author`;
+  const mailId = `comment-${formId}-mail`;
+  const urlId = `comment-${formId}-url`;
+  const textId = `comment-${formId}-text`;
 
   const canSubmit = useMemo(() => {
     return Boolean(form.author.trim() && form.mail.trim() && form.text.trim() && !submitting);
@@ -113,8 +119,11 @@ export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitt
       ) : null}
 
       <div className="mt-8 grid gap-4 md:grid-cols-3 md:gap-6">
-        <label className="comment-border flex h-[30px] items-center border px-[10px]">
+        <label htmlFor={authorId} className="comment-border flex h-[30px] items-center border px-[10px]">
           <input
+            id={authorId}
+            name="author"
+            autoComplete="name"
             required
             value={form.author}
             onChange={(event) => setForm((prev) => ({ ...prev, author: event.target.value }))}
@@ -123,8 +132,11 @@ export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitt
           />
         </label>
 
-        <label className="comment-border flex h-[30px] items-center border px-[10px]">
+        <label htmlFor={mailId} className="comment-border flex h-[30px] items-center border px-[10px]">
           <input
+            id={mailId}
+            name="email"
+            autoComplete="email"
             required
             type="email"
             value={form.mail}
@@ -134,8 +146,11 @@ export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitt
           />
         </label>
 
-        <label className="comment-border flex h-[30px] items-center border px-[10px]">
+        <label htmlFor={urlId} className="comment-border flex h-[30px] items-center border px-[10px]">
           <input
+            id={urlId}
+            name="url"
+            autoComplete="url"
             value={form.url}
             onChange={(event) => setForm((prev) => ({ ...prev, url: event.target.value }))}
             placeholder="网站"
@@ -145,8 +160,10 @@ export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitt
       </div>
 
       <div className="mt-8">
-        <label className="comment-border block border p-5">
+        <label htmlFor={textId} className="comment-border block border p-5">
           <textarea
+            id={textId}
+            name="text"
             ref={textareaRef}
             required
             value={form.text}
