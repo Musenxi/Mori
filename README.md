@@ -277,6 +277,29 @@ redis-cli --scan --pattern 'mori:typecho:*' | head
 [name](https://example.com) +(https://example.com/logo.jpg)
 ```
 
+### 单行链接富解析 (Rich Link & Media Embeds)
+
+为了提供更丰富的媒体内嵌体验，Mori 会自动识别 Markdown 中的「富媒体链接语法」。
+
+**格式：**
+
+```text
+@[文本内容](资源URL)
+```
+
+**说明：**
+- URL 必须是有效的超链接协议 (`http://` 或 `https://`)。
+- 当链接对应的资源为特定媒体平台（如 **YouTube** 或 **Bilibili**）的视频地址、或如 CodeSandbox / Excalidraw 等内置支持的工具时，此语法会被解析为等宽大尺寸响应式 `iframe` 无缝嵌入文章流中（视频播放比例会自动锁定横屏 16:9）。
+- 若链接非内置白名单平台支持，引擎将会自动去该目标站点抓取 Meta 信息，并回退渲染成一张包含网页 Title、Desc、头图缩略图和网址来源的**长条富链接卡片**。如果是 GitHub 仓库链接，更会自动获取并展示项目的 Star 数或差异行数等数据。
+
+**示例：**
+
+```text
+@[Bilibili视频解析](https://www.bilibili.com/video/BV15V411L7vJ)
+@[内嵌Bilibili](https://player.bilibili.com/player.html?aid=403768892&bvid=BV15V411L7vJ&cid=1208162267&page=1)
+@[YouTube视频解析](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+```
+
 ## 校验命令
 
 ```bash
