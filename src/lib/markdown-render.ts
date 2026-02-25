@@ -1739,6 +1739,33 @@ const markdownOptions: MarkdownToJSX.Options = {
   wrapper: null,
 };
 
+export function renderSimpleMarkdownToHtml(rawMarkdown: string) {
+  const source = rawMarkdown.trim();
+  if (!source) {
+    return "";
+  }
+
+  const preprocessed = preprocessFriendLinks(source);
+  const compileSource = `${DOC_HEAD_GUARD_HTML}\n\n${preprocessed}`;
+
+  const previousReferenceLinkDefinitions = activeReferenceLinkDefinitions;
+  activeReferenceLinkDefinitions = parseReferenceLinkDefinitions(preprocessed);
+
+  let rawHtml = "";
+  try {
+    rawHtml = toHtml(compiler(compileSource, markdownOptions));
+  } finally {
+    activeReferenceLinkDefinitions = previousReferenceLinkDefinitions;
+  }
+
+  rawHtml = rawHtml.replace(
+    new RegExp(`^<div data-mori-doc-guard="${DOC_HEAD_GUARD_ID}"><\\/div>`),
+    "",
+  );
+
+  return rawHtml;
+}
+
 export async function renderMarkdownToHtml(rawMarkdown: string) {
   const source = rawMarkdown.trim();
   if (!source) {

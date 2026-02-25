@@ -1,4 +1,5 @@
 import sanitizeHtml from "sanitize-html";
+import { renderSimpleMarkdownToHtml } from "./markdown-render";
 
 import {
   NormalizedComment,
@@ -266,10 +267,19 @@ export function normalizeCommentTree(raw: TypechoCommentRaw[], parentAuthor?: st
   const sorted = [...raw].sort((a, b) => Number(b.created) - Number(a.created));
 
   return sorted.map((comment) => {
-    const html = sanitizeHtml(comment.text ?? "", {
-      allowedTags: ["p", "br", "a", "strong", "em", "code", "pre", "blockquote"],
+    const rawMarkdownHtml = renderSimpleMarkdownToHtml(comment.text ?? "");
+    const html = sanitizeHtml(rawMarkdownHtml, {
+      allowedTags: ["p", "br", "a", "strong", "em", "code", "pre", "blockquote", "ul", "ol", "li", "span", "img", "del", "h1", "h2", "h3", "h4", "h5", "h6", "div", "aside", "sup", "table", "thead", "tbody", "tr", "th", "td"],
       allowedAttributes: {
-        a: ["href", "title", "target", "rel"],
+        a: ["href", "title", "target", "rel", "class"],
+        span: ["class", "style"],
+        code: ["class"],
+        pre: ["class", "data-mori-code", "data-lang", "data-attrs"],
+        img: ["src", "alt", "title", "class"],
+        p: ["class"],
+        div: ["class", "data-container"],
+        aside: ["class", "data-callout"],
+        sup: ["id", "class"],
       },
       transformTags: {
         a: sanitizeHtml.simpleTransform("a", {
