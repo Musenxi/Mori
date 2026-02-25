@@ -16,7 +16,7 @@ type ViewportMode = "any" | "desktop" | "mobile";
 
 function formatProcessReporterStatus(snapshot: ProcessReporterStatusSnapshot | null, stale: boolean) {
   if (!snapshot || stale) {
-    return "离线";
+    return "💤";
   }
 
   const parts: string[] = [];
@@ -210,12 +210,14 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
         aria-hidden
       />
       <span className="truncate">{text}</span>
-      <span
-        className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-70 w-max max-w-[min(420px,70vw)] -translate-x-1/2 rounded-md border border-border bg-bg/95 px-2 py-1 text-[11px] leading-tight text-primary opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
-        role="tooltip"
-      >
-        {tooltip}
-      </span>
+      {!stale && (
+        <span
+          className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-70 w-max max-w-[min(420px,70vw)] -translate-x-1/2 rounded-md border border-border bg-bg/95 px-2 py-1 text-[11px] leading-tight text-primary opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+          role="tooltip"
+        >
+          {tooltip}
+        </span>
+      )}
     </span>
   );
 }
