@@ -197,6 +197,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       const src = typeof attribs.src === "string" ? attribs.src.trim() : "";
       const safe =
         /^https:\/\/(www\.)?youtube\.com\/embed\//i.test(src) ||
+        /^https:\/\/player\.bilibili\.com\/player\.html/i.test(src) ||
         /^https:\/\/codesandbox\.io\/embed\//i.test(src) ||
         /^https:\/\/codesandbox\.io\/p\/devbox\//i.test(src) ||
         /^https:\/\/(www\.)?excalidraw\.com\//i.test(src) ||
