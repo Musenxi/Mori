@@ -681,6 +681,7 @@
   border-radius: 12px;
   background: color-mix(in srgb, var(--tag) 24%, transparent);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 4%, transparent);
+  width: 100%;
 }
 
 .prose-article .mori-rich-embed iframe {
@@ -689,7 +690,8 @@
   border: 0;
 }
 
-.prose-article .mori-rich-embed-youtube iframe {
+.prose-article .mori-rich-embed-youtube iframe,
+.prose-article .mori-rich-embed-bilibili iframe {
   aspect-ratio: 16 / 9;
   min-height: 220px;
 }
