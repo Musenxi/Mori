@@ -397,7 +397,8 @@ function findColumnInfo(post: NormalizedPost, columns: ColumnInfo[]) {
 }
 
 function buildColumnArticles(posts: NormalizedPost[], currentCid: number) {
-  return posts.filter((item) => item.cid !== currentCid).slice(0, 5);
+  void currentCid;
+  return posts.slice(0, 6);
 }
 
 function countArticleCharacters(html: string) {

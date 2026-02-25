@@ -39,7 +39,7 @@ function SideNavItem({
         className={cn(
           "min-w-0 flex-1 truncate text-left font-sans text-sm tabular-nums leading-normal transition-all duration-300",
           active
-            ? "font-semibold text-primary opacity-100"
+            ? "text-primary opacity-100"
             : "text-secondary opacity-55 hover:text-primary hover:opacity-80",
         )}
         title={post.title}

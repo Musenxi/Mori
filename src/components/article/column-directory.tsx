@@ -27,16 +27,15 @@ export function ColumnDirectory({
       <p className="font-serif-cn text-sm leading-normal tracking-[0.5px] text-muted">此文章收录于专栏：</p>
       <h3 className="font-serif-cn text-base font-bold leading-[1.4] tracking-[1px] text-primary">{column.name}</h3>
       <div className="h-px w-[150px] bg-border" />
-      <p className="font-serif-cn text-sm leading-normal tracking-[0.5px] text-muted">此专栏的其他文章：</p>
+      <p className="font-serif-cn text-sm leading-normal tracking-[0.5px] text-muted">此专栏的文章：</p>
 
-      <div className="flex flex-col gap-3">
+      <ul className="w-full space-y-1">
         {articles.map((article, index) => {
           const active = article.slug === currentSlug;
           return (
-            <Link
+            <li
               key={article.cid}
-              href={`/post/${article.slug}`}
-              prefetch={false}
+              className={cn("flex items-center", staggered && "mori-stagger-item")}
               style={
                 staggered
                   ? {
@@ -44,18 +43,25 @@ export function ColumnDirectory({
                   }
                   : undefined
               }
-              className={cn(
-                "font-serif-cn text-sm tabular-nums leading-normal text-muted transition-all duration-300 hover:text-primary",
-                staggered && "mori-stagger-item",
-                active && "flex items-center gap-2 text-primary",
-              )}
             >
-              {active ? <span className="h-[14px] w-[2px] bg-primary" aria-hidden /> : null}
-              <span>{article.title}</span>
-            </Link>
+              <Link
+                href={`/post/${article.slug}`}
+                prefetch={false}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "min-w-0 flex-1 truncate text-left font-sans text-sm tabular-nums leading-normal transition-all duration-300",
+                  active
+                    ? "text-primary opacity-100"
+                    : "text-secondary opacity-55 hover:text-primary hover:opacity-80",
+                )}
+                title={article.title}
+              >
+                {article.title}
+              </Link>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </aside>
   );
 }
