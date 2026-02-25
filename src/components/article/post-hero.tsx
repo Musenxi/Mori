@@ -98,8 +98,7 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
     const parsed = Number.parseInt(likeCount.replace(/[^\d]/g, ""), 10);
     return Number.isFinite(parsed) ? parsed : null;
   });
-  const [liked, setLiked] = useState(false);
-  const [likePending, setLikePending] = useState(false);
+
   const [readingCount, setReadingCount] = useState<number | null>(null);
 
   const applyCounter = useCallback((counter?: TypechoPostCounter) => {
@@ -108,7 +107,6 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
     }
     setViewsNum(Number.isFinite(counter.viewsNum) ? counter.viewsNum : null);
     setLikesNum(Number.isFinite(counter.likesNum) ? counter.likesNum : null);
-    setLiked(Boolean(counter.liked));
   }, []);
 
   const applyPostReadingPresence = useCallback((payload?: PostReadingPresencePayload) => {
@@ -257,18 +255,7 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
     };
   }, [applyPostReadingPresence, applyRealtimeCounter, post.cid, post.slug]);
 
-  const handleLike = useCallback(async () => {
-    if (liked || likePending) {
-      return;
-    }
 
-    setLikePending(true);
-    try {
-      await requestCounter("like");
-    } finally {
-      setLikePending(false);
-    }
-  }, [likePending, liked, requestCounter]);
 
   const readCountLabel = useMemo(() => {
     if (viewsNum === null) {
@@ -310,7 +297,7 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
         </MetaItem>
         <MetaItem
           icon={
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3" fill="none" stroke="currentColor" strokeWidth="1.75">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.75">
               <path d="M10 4 8.4 20M16 4l-1.6 16M5.8 9h13.2M5 15h13.2" />
             </svg>
           }
@@ -337,24 +324,15 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
         >
           <span>{readCountLabel}</span>
         </MetaItem>
-        <button
-          type="button"
-          onClick={() => {
-            void handleLike();
-          }}
-          disabled={liked || likePending}
-          className="inline-flex items-center gap-1 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-70"
-          aria-label={liked ? "已点赞" : "点赞"}
-          title={liked ? "已点赞" : "点赞"}
-        >
-          <span className="inline-flex h-4 w-4 items-center justify-center text-muted" aria-hidden>
+        <MetaItem
+          icon={
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M10 21H6a2 2 0 0 1-2-2v-7h4v9Z" />
-              <path d="M10 21h6.2a2 2 0 0 0 1.94-1.53l1.56-6.2A2 2 0 0 0 17.76 11H14V7.8a2.8 2.8 0 0 0-2.8-2.8L10 9v12Z" />
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
-          </span>
+          }
+        >
           <span>{likeCountLabel}</span>
-        </button>
+        </MetaItem>
         <MetaItem
           icon={
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">

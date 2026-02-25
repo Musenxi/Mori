@@ -25,7 +25,13 @@ export function ColumnDirectory({
     <aside className="flex flex-col gap-3">
       <div className="h-px w-[150px] bg-border" />
       <p className="font-serif-cn text-sm leading-normal tracking-[0.5px] text-muted">此文章收录于专栏：</p>
-      <h3 className="font-serif-cn text-base font-bold leading-[1.4] tracking-[1px] text-primary">{column.name}</h3>
+      <Link
+        href={column.slug ? `/column/${column.slug}` : "/column"}
+        prefetch={false}
+        className="font-serif-cn text-base font-bold leading-[1.4] tracking-[1px] text-primary transition-opacity duration-300 hover:opacity-70"
+      >
+        {column.name}
+      </Link>
       <div className="h-px w-[150px] bg-border" />
       <p className="font-serif-cn text-sm leading-normal tracking-[0.5px] text-muted">此专栏的文章：</p>
 

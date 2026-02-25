@@ -22,7 +22,7 @@ export function ColumnInfoCard({ column, compact = false, hideAction = false }: 
         compact && "gap-3 p-4",
       )}
     >
-      <div className={cn("flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-muted", compact && "h-12 w-12")}>
+      <div className={cn("flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-white", compact && "h-12 w-12")}>
         {resolvedIcon?.type === "image" ? (
           <Image
             src={resolvedIcon.src}
@@ -47,7 +47,7 @@ export function ColumnInfoCard({ column, compact = false, hideAction = false }: 
         <h3 className={cn("font-serif-cn text-[20px] font-bold text-primary", compact && "text-base")}>
           {column.name}
         </h3>
-        <p className={cn("mt-2 font-sans text-sm leading-[1.5] text-secondary", compact && "mt-1 text-[13px] leading-[1.4]")}>
+        <p className={cn("mt-2 font-sans text-sm leading-normal text-secondary", compact && "mt-1 text-[13px] leading-[1.4]")}>
           {column.description || "探索设计背后的思维模型与美学原则，重塑数字体验。"}
         </p>
       </div>

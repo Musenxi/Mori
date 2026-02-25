@@ -20,7 +20,7 @@ export function StaticPageContent({
       <ArticleContentDeferredStyles />
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0">
         <section className="mx-auto max-w-[850px] py-10 md:py-[100px]">
-          <h1 className="mori-stagger-item font-serif-cn text-[32px] leading-[1.4] tracking-[4px] text-primary md:text-[42px]">
+          <h1 className="mori-stagger-item mb-6 font-serif-cn text-[32px] leading-[1.4] tracking-[4px] text-primary md:text-[42px]">
             {page?.title || fallbackTitle}
           </h1>
 
