@@ -43,6 +43,14 @@ const CODE_PLACEHOLDER_REGEX =
   /<pre data-mori-code="1" data-lang="([^"]*)" data-attrs="([^"]*)"><code>([\s\S]*?)<\/code><\/pre>/g;
 const RICH_LINK_PLACEHOLDER_REGEX =
   /<div data-mori-rich-link="1" data-url="([^"]*)" data-label="([^"]*)"><\/div>/g;
+const FRIEND_LINK_LINE_REGEX = /\[([^\]]+)\]\(([^)]+)\)\s*\+\(([^)]+)\)(?:\s*\+\(([^)]*?)\))?/;
+const FRIEND_LINK_SINGLE_SRC = "\\[[^\\]]+\\]\\([^)]+\\)\\s*\\+\\([^)]+\\)(?:\\s*\\+\\([^)]*?\\))?";
+const FRIEND_LINK_BLOCK_REGEX = new RegExp(
+  "(" + FRIEND_LINK_SINGLE_SRC + "(?:\\s*\\n(?:\\s*\\n)*" + FRIEND_LINK_SINGLE_SRC + ")*)",
+  "gm",
+);
+const FRIEND_LINK_PLACEHOLDER_REGEX =
+  /<div data-mori-friend-links="1" data-items="([^"]*)">[\s\S]*?<\/div>/g;
 const LANGUAGE_ALIAS: Record<string, string> = {
   csharp: "c#",
   cxx: "cpp",
@@ -97,6 +105,13 @@ function escapeAttributeValue(value: string) {
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function escapeHtmlText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
@@ -1393,6 +1408,100 @@ const KatexBlockRule: MarkdownToJSX.Rule = {
   },
 };
 
+function preprocessFriendLinks(markdown: string): string {
+  // Protect code blocks from being matched by friend-link regex.
+  // Replace fenced (``` / ~~~) and indented code blocks with placeholders,
+  // run the friend-link replacement, then restore them.
+  const codeBlocks: string[] = [];
+  const CODE_FENCE_REGEX = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1\s*$/gm;
+  const CODE_INDENT_REGEX = /^(?: {4}|\t).+(?:\n(?:(?: {4}|\t).+|\s*))*$/gm;
+
+  let protected_ = markdown.replace(CODE_FENCE_REGEX, (m) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(m);
+    return `\x00CODEBLOCK_${idx}\x00`;
+  });
+
+  protected_ = protected_.replace(CODE_INDENT_REGEX, (m) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(m);
+    return `\x00CODEBLOCK_${idx}\x00`;
+  });
+
+  const replaced = protected_.replace(FRIEND_LINK_BLOCK_REGEX, (block) => {
+    const lines = block.split("\n").filter((line) => line.trim());
+    const items: Array<{ name: string; url: string; image: string; description: string }> = [];
+
+    for (const line of lines) {
+      const matched = line.match(FRIEND_LINK_LINE_REGEX);
+      if (matched) {
+        items.push({
+          name: matched[1] || "",
+          url: matched[2] || "",
+          image: matched[3] || "",
+          description: matched[4] || "",
+        });
+      }
+    }
+
+    if (items.length === 0) {
+      return block;
+    }
+
+    const encoded = encodeBase64Utf8(JSON.stringify(items));
+    return `<div data-mori-friend-links="1" data-items="${escapeAttributeValue(encoded)}"></div>\n\n`;
+  });
+
+  // Restore code blocks
+  return replaced.replace(/\x00CODEBLOCK_(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)] || "");
+}
+
+function applyFriendLinksPlaceholder(html: string): string {
+  if (!html.includes('data-mori-friend-links="1"')) {
+    return html;
+  }
+
+  return html.replace(FRIEND_LINK_PLACEHOLDER_REGEX, (_, encodedItems) => {
+    let items: Array<{ name: string; url: string; image: string; description: string }>;
+    try {
+      const raw = typeof Buffer !== "undefined"
+        ? Buffer.from(encodedItems, "base64").toString("utf8")
+        : new TextDecoder().decode(
+          Uint8Array.from(atob(encodedItems), (c) => c.charCodeAt(0)),
+        );
+      items = JSON.parse(raw) as typeof items;
+    } catch {
+      return "";
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return "";
+    }
+
+    const cards = items
+      .map((link) => {
+        const safeHref = sanitizeUrl(link.url) || "";
+        if (!safeHref) {
+          return "";
+        }
+
+        const descHtml = link.description
+          ? `<span class="mori-friend-card-desc">${escapeHtmlText(decodeHtmlEntities(link.description))}</span>`
+          : `<span class="mori-friend-card-desc"></span>`;
+
+        return `<a class="mori-friend-card" href="${escapeAttributeValue(safeHref)}" target="_blank" rel="noopener noreferrer">
+<img class="mori-friend-card-avatar" src="${escapeAttributeValue(link.image)}" alt="" loading="lazy">
+<span class="mori-friend-card-name">${escapeHtmlText(decodeHtmlEntities(link.name))}</span>
+${descHtml}
+</a>`;
+      })
+      .filter(Boolean)
+      .join("");
+
+    return `<div class="mori-friend-links">${cards}</div>`;
+  });
+}
+
 const AlertsRule: MarkdownToJSX.Rule = {
   match: blockRegex(ALERT_BLOCKQUOTE_REGEX),
   order: Priority.HIGH,
@@ -1636,13 +1745,16 @@ export async function renderMarkdownToHtml(rawMarkdown: string) {
     return "";
   }
 
+  // Pre-process friend links before markdown compilation
+  const preprocessed = preprocessFriendLinks(source);
+
   // @innei/markdown-to-jsx has a block-parsing edge case at document start
   // (the first list/hr block may not be recognized). We prepend a guard node
   // and remove only that exact leading node after compile.
-  const compileSource = `${DOC_HEAD_GUARD_HTML}\n\n${source}`;
+  const compileSource = `${DOC_HEAD_GUARD_HTML}\n\n${preprocessed}`;
 
   const previousReferenceLinkDefinitions = activeReferenceLinkDefinitions;
-  activeReferenceLinkDefinitions = parseReferenceLinkDefinitions(source);
+  activeReferenceLinkDefinitions = parseReferenceLinkDefinitions(preprocessed);
 
   let rawHtml = "";
   try {
@@ -1657,5 +1769,6 @@ export async function renderMarkdownToHtml(rawMarkdown: string) {
   );
 
   const highlightedHtml = await applyShikiHighlight(rawHtml);
-  return applyRichLinkPreview(highlightedHtml);
+  const withRichLinks = await applyRichLinkPreview(highlightedHtml);
+  return applyFriendLinksPlaceholder(withRichLinks);
 }

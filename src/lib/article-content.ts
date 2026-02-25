@@ -133,6 +133,8 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       "data-container",
       "data-mori-tabs",
       "data-mori-excalidraw",
+      "data-mori-friend-links",
+      "data-items",
       "data-tab-index",
       "data-source",
       "aria-hidden",

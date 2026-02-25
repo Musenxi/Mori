@@ -408,7 +408,7 @@
 }
 
 .prose-article .mori-inline-link,
-.prose-article a:not(.mori-inline-link):not(.mori-link-card-grid):not(.mori-heading-anchor):not(.mori-footnote-link):not(.mori-mention):not(.mori-footnote-backref) {
+.prose-article a:not(.mori-inline-link):not(.mori-link-card-grid):not(.mori-heading-anchor):not(.mori-footnote-link):not(.mori-mention):not(.mori-footnote-backref):not(.mori-friend-card) {
   position: relative;
   display: inline-flex;
   max-width: 100%;
@@ -425,13 +425,13 @@
 
 .prose-article .mori-inline-link:hover,
 .prose-article .mori-inline-link:focus-visible,
-.prose-article a:not(.mori-inline-link):not(.mori-link-card-grid):not(.mori-heading-anchor):not(.mori-footnote-link):not(.mori-mention):not(.mori-footnote-backref):hover,
-.prose-article a:not(.mori-inline-link):not(.mori-link-card-grid):not(.mori-heading-anchor):not(.mori-footnote-link):not(.mori-mention):not(.mori-footnote-backref):focus-visible {
+.prose-article a:not(.mori-inline-link):not(.mori-link-card-grid):not(.mori-heading-anchor):not(.mori-footnote-link):not(.mori-mention):not(.mori-footnote-backref):not(.mori-friend-card):hover,
+.prose-article a:not(.mori-inline-link):not(.mori-link-card-grid):not(.mori-heading-anchor):not(.mori-footnote-link):not(.mori-mention):not(.mori-footnote-backref):not(.mori-friend-card):focus-visible {
   background-size: 100% 1px;
 }
 
 .prose-article .mori-inline-link::after,
-.prose-article a:not(.mori-inline-link):not(.mori-link-card-grid):not(.mori-heading-anchor):not(.mori-footnote-link):not(.mori-mention):not(.mori-footnote-backref)::after {
+.prose-article a:not(.mori-inline-link):not(.mori-link-card-grid):not(.mori-heading-anchor):not(.mori-footnote-link):not(.mori-mention):not(.mori-footnote-backref):not(.mori-friend-card)::after {
   content: "↗";
   display: inline-block;
   margin-left: 2px;
@@ -580,6 +580,78 @@
   aspect-ratio: 1;
   object-fit: cover;
   background-color: color-mix(in srgb, var(--tag) 80%, transparent);
+}
+
+/* ── Friend Links Grid ── */
+.prose-article .mori-friend-links {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.prose-article .mori-friend-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px 12px 20px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  background: color-mix(in srgb, var(--tag) 40%, transparent);
+  backdrop-filter: blur(12px) saturate(160%);
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
+  cursor: pointer;
+  min-height: 200px;
+}
+
+.prose-article .mori-friend-card:hover {
+  background: color-mix(in srgb, var(--tag) 72%, transparent);
+  border-color: color-mix(in srgb, var(--muted) 36%, var(--border));
+  transform: translateY(-2px);
+}
+
+.prose-article .mori-friend-card-avatar {
+  width: 80px;
+  height: 80px;
+  min-width: 80px;
+  min-height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  margin: 0;
+  background-color: #fff;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.prose-article .mori-friend-card-name {
+  margin-top: 12px;
+  font-family: var(--font-inter), "PingFang SC", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.prose-article .mori-friend-card-desc {
+  margin-top: 6px;
+  font-family: var(--font-inter), "PingFang SC", sans-serif;
+  font-size: 12px;
+  color: var(--secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  max-width: 100%;
+  min-height: 36px;
 }
 
 .prose-article .mori-rich-embed {
@@ -1149,6 +1221,21 @@
   .prose-article .mori-code-body .shiki code {
     font-size: 13px;
     line-height: 1.55;
+  }
+
+  .prose-article .mori-friend-links {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .prose-article .mori-friend-card {
+    padding: 20px 10px 16px;
+    min-height: 180px;
+  }
+
+  .prose-article .mori-friend-card-avatar {
+    width: 64px;
+    height: 64px;
   }
 }
 
