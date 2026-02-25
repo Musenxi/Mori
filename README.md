@@ -284,7 +284,9 @@ redis-cli --scan --pattern 'mori:typecho:*' | head
 **格式：**
 
 ```text
-@[文本内容](资源URL)
+
+资源URL
+
 ```
 
 **说明：**
@@ -295,9 +297,13 @@ redis-cli --scan --pattern 'mori:typecho:*' | head
 **示例：**
 
 ```text
-@[Bilibili视频解析](https://www.bilibili.com/video/BV15V411L7vJ)
-@[内嵌Bilibili](https://player.bilibili.com/player.html?aid=403768892&bvid=BV15V411L7vJ&cid=1208162267&page=1)
-@[YouTube视频解析](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+
+https://www.bilibili.com/video/BV15V411L7vJ
+
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+https://github.com/Musenxi/Mori
+
 ```
 
 ## 校验命令
