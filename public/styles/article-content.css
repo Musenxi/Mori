@@ -11,6 +11,10 @@
   margin-bottom: 0;
 }
 
+.prose-article> :first-child {
+  margin-top: 0 !important;
+}
+
 .prose-article p,
 .prose-article li {
   font-size: 16px;
@@ -96,7 +100,13 @@
   font-family: "STDongGuanTi", var(--font-noto-serif-sc, "Songti SC", "Noto Serif CJK SC", serif);
   color: var(--primary);
   line-height: 1.5;
+  margin-bottom: 16px;
   scroll-margin-top: 104px;
+}
+
+.prose-article del,
+.prose-article s {
+  font-size: inherit;
 }
 
 .prose-article h1 {
@@ -527,7 +537,7 @@
 .prose-article .mori-link-card-stars {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
   margin-top: 4px;
   font-size: 0.8rem;
   font-weight: 500;
