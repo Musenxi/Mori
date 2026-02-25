@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { cn } from "@/lib/cn";
 import { getRealtimeSocket } from "@/lib/realtime-socket";
 import {
   ProcessReporterStatusResponse,
@@ -45,6 +46,33 @@ function isSnapshotStale(snapshot: ProcessReporterStatusSnapshot | null) {
     return true;
   }
   return Date.now() > snapshot.staleAt;
+}
+
+function AnimatedText({ text }: { text: string }) {
+  const [displayText, setDisplayText] = useState(text);
+  const [animating, setAnimating] = useState(false);
+
+  useEffect(() => {
+    if (text !== displayText) {
+      setAnimating(true);
+      const timer = setTimeout(() => {
+        setDisplayText(text);
+        setAnimating(false);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [text, displayText]);
+
+  return (
+    <span
+      className={cn(
+        "truncate transition-all duration-200",
+        animating ? "scale-95 blur-[2px] opacity-0" : "scale-100 blur-0 opacity-100"
+      )}
+    >
+      {displayText}
+    </span>
+  );
 }
 
 function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
@@ -211,10 +239,13 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
       tabIndex={0}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${stale ? "bg-secondary/45" : "bg-emerald-500"}`}
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-300",
+          stale ? "bg-secondary/45" : "bg-emerald-500"
+        )}
         aria-hidden
       />
-      <span className="truncate">{text}</span>
+      <AnimatedText text={text} />
       {!stale && (
         <span
           className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-70 w-max max-w-[min(420px,70vw)] -translate-x-1/2 rounded-md border border-border bg-bg/95 px-2 py-1 text-[11px] leading-tight text-primary opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
