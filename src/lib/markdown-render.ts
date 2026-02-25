@@ -980,15 +980,40 @@ function parseYoutubeId(url: URL) {
   return "";
 }
 
-function parseBilibiliId(url: URL) {
+function parseBilibiliParams(url: URL): URLSearchParams | null {
   const host = url.hostname.toLowerCase();
+
   if (host === "bilibili.com" || host === "www.bilibili.com") {
     if (url.pathname.startsWith("/video/")) {
       const parts = url.pathname.split("/");
-      return parts[2] || ""; // e.g., BV1xx4...
+      const id = parts[2] || "";
+      if (id) {
+        const params = new URLSearchParams({ high_quality: "1", danmaku: "0", autoplay: "0" });
+        if (id.toLowerCase().startsWith("bv")) {
+          params.set("bvid", id);
+        }
+        if (id.toLowerCase().startsWith("av")) {
+          params.set("aid", id.replace(/^av/i, ""));
+        }
+        if (url.searchParams.has("p")) params.set("p", url.searchParams.get("p")!);
+        if (url.searchParams.has("t")) params.set("t", url.searchParams.get("t")!);
+        if (url.searchParams.has("autoplay")) params.set("autoplay", url.searchParams.get("autoplay")!);
+        return params;
+      }
     }
   }
-  return "";
+
+  if (host === "player.bilibili.com") {
+    if (url.pathname.startsWith("/player.html") || url.pathname === "/player.html") {
+      const params = new URLSearchParams(url.searchParams.toString());
+      if (!params.has("high_quality")) params.set("high_quality", "1");
+      if (!params.has("danmaku")) params.set("danmaku", "0");
+      if (!params.has("autoplay")) params.set("autoplay", "0");
+      return params;
+    }
+  }
+
+  return null;
 }
 
 function isCodesandboxUrl(url: URL) {
@@ -1020,28 +1045,9 @@ function renderRichEmbedFromUrl(url: URL) {
 </div>`;
   }
 
-  const bilibiliId = parseBilibiliId(url);
-  if (bilibiliId) {
-    const searchParams = new URLSearchParams({
-      bvid: bilibiliId,
-      high_quality: "1",
-      danmaku: "0",
-      autoplay: "0",
-    });
-
-    if (url.searchParams.has("p")) {
-      searchParams.set("p", url.searchParams.get("p")!);
-    }
-    if (url.searchParams.has("t")) {
-      searchParams.set("t", url.searchParams.get("t")!);
-    }
-
-    // Add autoplay param if the user requested it specifically via query string
-    if (url.searchParams.has("autoplay")) {
-      searchParams.set("autoplay", url.searchParams.get("autoplay")!);
-    }
-
-    const embed = `https://player.bilibili.com/player.html?${searchParams.toString()}`;
+  const bilibiliParams = parseBilibiliParams(url);
+  if (bilibiliParams) {
+    const embed = `https://player.bilibili.com/player.html?${bilibiliParams.toString()}`;
     return `<div class="mori-rich-link mori-rich-embed mori-rich-embed-bilibili">
 <iframe src="${embed}" title="Bilibili video player" loading="lazy" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen></iframe>
 </div>`;
