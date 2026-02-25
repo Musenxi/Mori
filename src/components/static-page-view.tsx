@@ -1,17 +1,6 @@
 import { ArticleContentDeferredStyles } from "@/components/article/article-content-deferred-styles";
 import { CommentSection } from "@/components/article/comment-section";
-import { Shell } from "@/components/shell";
 import { CommentPagination, NormalizedComment, NormalizedPost } from "@/lib/typecho-types";
-import { SiteContext } from "@/lib/site-data";
-
-interface StaticPageViewProps {
-  context: SiteContext;
-  navItems: Array<{ href: string; label: string }>;
-  fallbackTitle: string;
-  page: NormalizedPost | null;
-  comments?: NormalizedComment[];
-  commentsPagination?: CommentPagination;
-}
 
 interface StaticPageContentProps {
   fallbackTitle: string;
@@ -65,22 +54,3 @@ export function StaticPageContent({
   );
 }
 
-export function StaticPageView({
-  context,
-  navItems,
-  fallbackTitle,
-  page,
-  comments,
-  commentsPagination,
-}: StaticPageViewProps) {
-  return (
-    <Shell context={context} navItems={navItems}>
-      <StaticPageContent
-        fallbackTitle={fallbackTitle}
-        page={page}
-        comments={comments}
-        commentsPagination={commentsPagination}
-      />
-    </Shell>
-  );
-}

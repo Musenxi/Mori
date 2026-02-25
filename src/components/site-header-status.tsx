@@ -51,6 +51,7 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
   const [snapshot, setSnapshot] = useState<ProcessReporterStatusSnapshot | null>(null);
   const [stale, setStale] = useState(true);
   const [featureEnabled, setFeatureEnabled] = useState(true);
+  const [initialized, setInitialized] = useState(false);
   const [ownerName, setOwnerName] = useState("站长");
   const [mediaActive, setMediaActive] = useState(viewport === "any");
   const active = viewport === "any" ? true : mediaActive;
@@ -173,7 +174,11 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
 
     let cleanup: (() => void) | undefined;
     void pullSnapshot().then((enabled) => {
-      if (!enabled || disposed) {
+      if (disposed) {
+        return;
+      }
+      setInitialized(true);
+      if (!enabled) {
         return;
       }
 
@@ -195,7 +200,7 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
   const text = useMemo(() => formatProcessReporterStatus(snapshot, stale), [snapshot, stale]);
   const tooltip = `${ownerName}正在使用：${text}`;
 
-  if (!featureEnabled) {
+  if (!initialized || !featureEnabled) {
     return null;
   }
 

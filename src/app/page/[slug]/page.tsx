@@ -3,9 +3,7 @@ import { Suspense } from "react";
 
 import "../../article-content-critical.css";
 import { StaticPageContentFallback } from "@/components/page-loading-fallbacks";
-import { Shell } from "@/components/shell";
 import { StaticPageContent } from "@/components/static-page-view";
-import { buildNavItems } from "@/lib/navigation";
 import { getSiteContext, getStaticPageDetailBySlug } from "@/lib/site-data";
 
 export const revalidate = 60;
@@ -55,17 +53,14 @@ export default async function GenericPage({ params, searchParams }: GenericPageP
   const { slug } = await params;
   const commentPage = parseCommentPage((await searchParams).cpage);
   const context = await getSiteContext();
-  const navItems = buildNavItems(context);
 
   return (
-    <Shell context={context} navItems={navItems}>
-      <Suspense fallback={<StaticPageContentFallback />}>
-        <GenericPageContent
-          slug={slug}
-          commentPage={commentPage}
-          configured={context.configured}
-        />
-      </Suspense>
-    </Shell>
+    <Suspense fallback={<StaticPageContentFallback />}>
+      <GenericPageContent
+        slug={slug}
+        commentPage={commentPage}
+        configured={context.configured}
+      />
+    </Suspense>
   );
 }

@@ -1,10 +1,8 @@
 import { Suspense } from "react";
 
 import { HomeContentFallback } from "@/components/page-loading-fallbacks";
-import { Shell } from "@/components/shell";
 import { YearPostGroups } from "@/components/year-post-groups";
-import { buildNavItems } from "@/lib/navigation";
-import { getHomeData, getSiteContext } from "@/lib/site-data";
+import { getHomeData } from "@/lib/site-data";
 
 export const revalidate = 60;
 
@@ -23,16 +21,11 @@ async function HomePageContent() {
 }
 
 export default async function HomePage() {
-  const context = await getSiteContext();
-  const navItems = buildNavItems(context);
-
   return (
-    <Shell context={context} navItems={navItems}>
-      <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
-        <Suspense fallback={<HomeContentFallback />}>
-          <HomePageContent />
-        </Suspense>
-      </main>
-    </Shell>
+    <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
+      <Suspense fallback={<HomeContentFallback />}>
+        <HomePageContent />
+      </Suspense>
+    </main>
   );
 }

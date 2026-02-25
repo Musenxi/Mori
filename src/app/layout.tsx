@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { Inter, Special_Elite } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { Shell } from "@/components/shell";
 import { getSettings } from "@/lib/typecho-client";
+import { getSiteContext } from "@/lib/site-data";
+import { buildNavItems } from "@/lib/navigation";
 
 import "./globals.css";
 
@@ -42,13 +45,20 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const context = await getSiteContext();
+  const navItems = buildNavItems(context);
+
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${specialElite.variable} min-h-screen bg-bg text-primary antialiased`}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <Shell context={context} navItems={navItems}>
+            {children}
+          </Shell>
+        </ThemeProvider>
       </body>
     </html>
   );

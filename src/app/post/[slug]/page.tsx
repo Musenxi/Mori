@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import "../../article-content-critical.css";
 import { ColumnInfoCard } from "@/components/column-info-card";
 import { PostContentFallback } from "@/components/page-loading-fallbacks";
-import { Shell } from "@/components/shell";
 import { buildNavItems } from "@/lib/navigation";
 import { getPostDetailData, getSiteContext } from "@/lib/site-data";
 import { getPosts } from "@/lib/typecho-client";
@@ -145,13 +144,10 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
 export default async function PostPage({ params }: PostPageProps) {
   const { slug } = await params;
   const context = await getSiteContext();
-  const navItems = buildNavItems(context);
 
   return (
-    <Shell context={context} navItems={navItems} mobileArticleMode>
-      <Suspense fallback={<PostContentFallback />}>
-        <PostPageContent slug={slug} configured={context.configured} />
-      </Suspense>
-    </Shell>
+    <Suspense fallback={<PostContentFallback />}>
+      <PostPageContent slug={slug} configured={context.configured} />
+    </Suspense>
   );
 }

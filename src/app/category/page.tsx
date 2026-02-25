@@ -2,8 +2,6 @@ import { Suspense } from "react";
 
 import { CategoryPageClient } from "@/components/category-page-client";
 import { CategoryContentFallback } from "@/components/page-loading-fallbacks";
-import { Shell } from "@/components/shell";
-import { buildNavItems } from "@/lib/navigation";
 import { getCategoryData, getSiteContext } from "@/lib/site-data";
 
 export const revalidate = 60;
@@ -41,15 +39,11 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
   const activeSlug = params.slug?.trim() || null;
 
   const context = await getSiteContext();
-  const navItems = buildNavItems(context);
-
   return (
-    <Shell context={context} navItems={navItems}>
-      <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
-        <Suspense fallback={<CategoryContentFallback />}>
-          <CategoryPageContent activeSlug={activeSlug} configured={context.configured} />
-        </Suspense>
-      </main>
-    </Shell>
+    <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
+      <Suspense fallback={<CategoryContentFallback />}>
+        <CategoryPageContent activeSlug={activeSlug} configured={context.configured} />
+      </Suspense>
+    </main>
   );
 }

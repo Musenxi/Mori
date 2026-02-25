@@ -3,8 +3,6 @@ import { Suspense } from "react";
 
 import { ColumnCard } from "@/components/column-card";
 import { ColumnListContentFallback } from "@/components/page-loading-fallbacks";
-import { Shell } from "@/components/shell";
-import { buildNavItems } from "@/lib/navigation";
 import { getColumnsData, getSiteContext } from "@/lib/site-data";
 
 export const revalidate = 60;
@@ -53,15 +51,12 @@ async function ColumnListContent({ configured }: { configured: boolean }) {
 
 export default async function ColumnPage() {
   const context = await getSiteContext();
-  const navItems = buildNavItems(context);
 
   return (
-    <Shell context={context} navItems={navItems}>
-      <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
-        <Suspense fallback={<ColumnListContentFallback />}>
-          <ColumnListContent configured={context.configured} />
-        </Suspense>
-      </main>
-    </Shell>
+    <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
+      <Suspense fallback={<ColumnListContentFallback />}>
+        <ColumnListContent configured={context.configured} />
+      </Suspense>
+    </main>
   );
 }

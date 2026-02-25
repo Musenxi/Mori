@@ -3,8 +3,6 @@ import { Suspense } from "react";
 
 import { ColumnDetailClient } from "@/components/column-detail-client";
 import { ColumnDetailContentFallback } from "@/components/page-loading-fallbacks";
-import { Shell } from "@/components/shell";
-import { buildNavItems } from "@/lib/navigation";
 import { getColumnDetailData, getColumnsData, getSiteContext } from "@/lib/site-data";
 
 export const revalidate = 60;
@@ -48,15 +46,12 @@ async function ColumnDetailContent({
 export default async function ColumnDetailPage({ params }: ColumnDetailPageProps) {
   const { slug } = await params;
   const context = await getSiteContext();
-  const navItems = buildNavItems(context);
 
   return (
-    <Shell context={context} navItems={navItems}>
-      <main className="mx-auto w-full max-w-[1440px] px-5 py-10 md:px-[80px] md:py-[80px] md:pl-[clamp(20px,calc(40vw-280px),300px)]">
-        <Suspense fallback={<ColumnDetailContentFallback />}>
-          <ColumnDetailContent slug={slug} configured={context.configured} />
-        </Suspense>
-      </main>
-    </Shell>
+    <main className="mx-auto w-full max-w-[1440px] px-5 py-10 md:px-[80px] md:py-[80px] md:pl-[clamp(20px,calc(40vw-280px),300px)]">
+      <Suspense fallback={<ColumnDetailContentFallback />}>
+        <ColumnDetailContent slug={slug} configured={context.configured} />
+      </Suspense>
+    </main>
   );
 }

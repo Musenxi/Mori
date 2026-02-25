@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
 
 import { SiteHeaderStatusDesktop, SiteHeaderStatusMobile } from "@/components/site-header-status";
 import { cn } from "@/lib/cn";
@@ -15,7 +16,6 @@ export interface NavItem {
 interface SiteHeaderProps {
   blogTitle: string;
   navItems: NavItem[];
-  mobileArticleMode?: boolean;
 }
 
 function MenuIcon({ open }: { open: boolean }) {
@@ -59,7 +59,9 @@ function ThemeToggle() {
   );
 }
 
-export function SiteHeader({ blogTitle, navItems, mobileArticleMode = false }: SiteHeaderProps) {
+export function SiteHeader({ blogTitle, navItems }: SiteHeaderProps) {
+  const pathname = usePathname();
+  const mobileArticleMode = pathname.startsWith("/post/");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileHeaderVisible, setMobileHeaderVisible] = useState(true);
 

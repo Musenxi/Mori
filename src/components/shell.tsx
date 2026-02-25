@@ -10,13 +10,12 @@ interface ShellProps {
   context: SiteContext;
   navItems: Array<{ href: string; label: string }>;
   children: ReactNode;
-  mobileArticleMode?: boolean;
 }
 
-export function Shell({ context, navItems, children, mobileArticleMode = false }: ShellProps) {
+export function Shell({ context, navItems, children }: ShellProps) {
   return (
     <div className="flex min-h-screen flex-col bg-bg text-primary">
-      <SiteHeader blogTitle={context.blogTitle} navItems={navItems} mobileArticleMode={mobileArticleMode} />
+      <SiteHeader blogTitle={context.blogTitle} navItems={navItems} />
       {!context.configured ? <NoConfigAlert /> : null}
       <div className="flex-1">{children}</div>
       <MarkdownRuntimeLazy />
