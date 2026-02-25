@@ -246,8 +246,36 @@ redis-cli --scan --pattern 'mori:typecho:*' | head
 - 其它新建页面自动显示在 Header，路由为 `/page/[slug]`
 
 ## 设计稿
-
 - `frontend.pen`
+
+## Markdown 自定义语法约定
+
+本主题在默认 Markdown 语法之外，扩展了以下自定义卡片组件：
+
+### 友链卡片 (Friend Link Cards)
+
+使用特定的书写格式，自动在页面中渲染为四列响应式带头像的友链网格卡片。
+
+**格式：**
+
+```text
+[名称](网址) +(头像URL) +(描述)
+```
+
+**说明：**
+- **名称与网址**：标准 Markdown 链接格式 `[名称](网址)`。
+- **头像URL**：使用 `+(图片URL)` 格式追加。如果加载失败或未提供，将显示圆形固定底色占位。
+- **描述（可选）**：追加第二个 `+(描述文字)`。如果不填，卡片依然保持统一高度预留排版空间。
+- 加号前允许有空格，例如 `[Name](URL) +(Img)`。
+- 连续的多行友链语法（即使中间有空行隔开）会自动合并入同一个网格容器。
+- 代码块（`` ` `` 或 ` ``` `）内部的文本即使符合上述格式，也即受保护而不被解析为友链卡片。
+
+**示例：**
+
+```text
+[name](https://example.com) +(https://example.com/avatar.png) +(description)
+[name](https://example.com) +(https://example.com/logo.jpg)
+```
 
 ## 校验命令
 
