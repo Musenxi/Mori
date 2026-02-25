@@ -678,7 +678,7 @@
 .prose-article .mori-rich-embed {
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--tag) 24%, transparent);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 4%, transparent);
   width: 100%;
