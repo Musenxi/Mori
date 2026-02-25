@@ -16,6 +16,7 @@ import { MobileTocSheet } from "@/components/article/mobile-toc-sheet";
 import { PostNavigation } from "@/components/article/post-navigation";
 import { CommentSection } from "@/components/article/comment-section";
 import { SidePostNavigation } from "@/components/article/side-post-navigation";
+import { TocActions } from "@/components/article/toc-actions";
 
 export const revalidate = 60;
 
@@ -137,6 +138,11 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
       </main>
 
       <MobileTocSheet items={tocItems} />
+      <TocActions
+        cid={detail.post.cid}
+        slug={detail.post.slug}
+        initialLikeCount={detail.likeCount}
+      />
     </>
   );
 }
