@@ -31,7 +31,7 @@ export interface SiteContext {
   blogDescription: string;
   keywords: string;
   configured: boolean;
-  pages: Array<{ cid: number; slug: string; title: string }>;
+  pages: Array<{ cid: number; slug: string; title: string; redirect?: string }>;
 }
 
 export interface ColumnInfo {
@@ -253,6 +253,7 @@ export async function getSiteContext(): Promise<SiteContext> {
           cid: page.cid,
           slug: page.slug,
           title: page.title,
+          redirect: page.fields?.redirect?.value || undefined,
         })),
     };
   } catch {

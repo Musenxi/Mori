@@ -1,26 +1,30 @@
 import { SiteContext } from "@/lib/site-data";
 
-function hasPage(context: SiteContext, slug: string) {
-  return context.pages.some((page) => page.slug.toLowerCase() === slug.toLowerCase());
+function getPage(context: SiteContext, slug: string) {
+  return context.pages.find((page) => page.slug.toLowerCase() === slug.toLowerCase());
 }
 
 export function buildNavItems(context: SiteContext) {
   const nav: Array<{ href: string; label: string }> = [{ href: "/", label: "首页" }];
 
-  if (hasPage(context, "category")) {
-    nav.push({ href: "/category", label: "分类" });
+  const categoryPage = getPage(context, "category");
+  if (categoryPage) {
+    nav.push({ href: categoryPage.redirect || "/category", label: "分类" });
   }
 
-  if (hasPage(context, "comment")) {
-    nav.push({ href: "/comment", label: "留言" });
+  const commentPage = getPage(context, "comment");
+  if (commentPage) {
+    nav.push({ href: commentPage.redirect || "/comment", label: "留言" });
   }
 
-  if (hasPage(context, "friends")) {
-    nav.push({ href: "/friends", label: "友人" });
+  const friendsPage = getPage(context, "friends");
+  if (friendsPage) {
+    nav.push({ href: friendsPage.redirect || "/friends", label: "友人" });
   }
 
-  if (hasPage(context, "about")) {
-    nav.push({ href: "/about", label: "关于" });
+  const aboutPage = getPage(context, "about");
+  if (aboutPage) {
+    nav.push({ href: aboutPage.redirect || "/about", label: "关于" });
   }
 
   const reserved = new Set(["category", "comment", "friends", "about", "message"]);
@@ -28,7 +32,7 @@ export function buildNavItems(context: SiteContext) {
 
   extraPages.forEach((page) => {
     nav.push({
-      href: `/page/${encodeURIComponent(page.slug)}`,
+      href: page.redirect || `/page/${encodeURIComponent(page.slug)}`,
       label: page.title,
     });
   });

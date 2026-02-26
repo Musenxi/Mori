@@ -33,8 +33,10 @@ function SideNavItem({
       }
     >
       <Link
-        href={`/post/${post.slug}`}
-        prefetch={false}
+        href={post.redirect || `/post/${post.slug}`}
+        prefetch={!post.redirect ? false : undefined}
+        target={post.redirect ? "_blank" : undefined}
+        rel={post.redirect ? "noopener noreferrer" : undefined}
         aria-current={active ? "page" : undefined}
         className={cn(
           "min-w-0 flex-1 truncate text-left font-sans text-sm tabular-nums leading-normal transition-all duration-300",

@@ -176,6 +176,7 @@ export interface NormalizedPost {
   seriesSlug?: string;
   tags: Array<{ name: string; slug?: string }>;
   coverImage?: string;
+  redirect?: string;
 }
 
 export interface YearGroupedPosts {

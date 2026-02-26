@@ -224,6 +224,7 @@ export function normalizePost(raw: TypechoPostRaw): NormalizedPost {
     seriesSlug: series?.slug,
     tags: resolveTags(raw),
     coverImage: coverField || extractCoverFromMarkdown(html) || undefined,
+    redirect: findField(raw, ["redirect"]) || undefined,
   };
 }
 

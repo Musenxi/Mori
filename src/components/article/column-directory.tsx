@@ -51,8 +51,10 @@ export function ColumnDirectory({
               }
             >
               <Link
-                href={`/post/${article.slug}`}
-                prefetch={false}
+                href={article.redirect || `/post/${article.slug}`}
+                prefetch={!article.redirect ? false : undefined}
+                target={article.redirect ? "_blank" : undefined}
+                rel={article.redirect ? "noopener noreferrer" : undefined}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "min-w-0 flex-1 truncate text-left font-sans text-sm tabular-nums leading-normal transition-all duration-300",

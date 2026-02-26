@@ -11,10 +11,10 @@ interface PostCardProps {
 export function PostCard({ post, compact = false }: PostCardProps) {
   return (
     <article className={cn("w-full py-8", compact && "py-[15px]")}>
-      <Link href={`/post/${post.slug}`} prefetch={false} className="group block">
+      <Link href={post.redirect || `/post/${post.slug}`} prefetch={!post.redirect ? false : undefined} target={post.redirect ? "_blank" : undefined} rel={post.redirect ? "noopener noreferrer" : undefined} className="group block">
         <div className="flex items-center gap-3">
           <time className="font-sans text-xs tracking-[1px] text-muted">{post.shortDate}</time>
-          <span className="inline-flex items-center justify-center rounded px-[6px] py-[1px] text-[10px] text-muted bg-tag">
+          <span className="inline-flex items-center justify-center rounded px-[6px] py-px text-[10px] text-muted bg-tag">
             {post.categoryName}
           </span>
         </div>
@@ -23,7 +23,7 @@ export function PostCard({ post, compact = false }: PostCardProps) {
           className={cn(
             "mt-1 font-serif-cn text-[20px] font-bold tracking-[1px] text-primary transition-colors group-hover:text-secondary",
             "leading-[1.6]",
-            compact && "text-[21px] leading-[1.5]",
+            compact && "text-[21px] leading-normal",
           )}
         >
           {post.title}
