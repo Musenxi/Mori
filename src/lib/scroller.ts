@@ -1,5 +1,7 @@
 "use client";
 
+let cancelActiveSpringScroll: (() => void) | null = null;
+
 function getCurrentScrollTop() {
   return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
 }
@@ -7,8 +9,6 @@ function getCurrentScrollTop() {
 function setCurrentScrollTop(top: number) {
   const next = Math.max(0, top);
   window.scrollTo(0, next);
-  document.documentElement.scrollTop = next;
-  document.body.scrollTop = next;
 }
 
 function getMaxScrollTop() {
@@ -16,16 +16,86 @@ function getMaxScrollTop() {
   return Math.max(0, root.scrollHeight - window.innerHeight);
 }
 
-export function springScrollTo(y: number, duration = 420) {
-  return new Promise<void>((resolve) => {
-    const from = getCurrentScrollTop();
-    const to = Math.min(getMaxScrollTop(), Math.max(0, y));
-    if (Math.abs(to - from) < 1) {
-      setCurrentScrollTop(to);
-      resolve();
-      return;
-    }
+function supportsNativeSmoothScroll() {
+  return "scrollBehavior" in document.documentElement.style;
+}
 
+function settleWithNativeSmoothScroll(to: number) {
+  return new Promise<void>((resolve) => {
+    let rafId = 0;
+    let stopped = false;
+    let settledFrames = 0;
+
+    const cleanup = () => {
+      window.removeEventListener("wheel", stopByUser);
+      window.removeEventListener("touchmove", stopByUser);
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      if (cancelActiveSpringScroll === stopByUser) {
+        cancelActiveSpringScroll = null;
+      }
+    };
+
+    const finish = (snapToTarget: boolean) => {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+      if (snapToTarget) {
+        setCurrentScrollTop(to);
+      }
+      cleanup();
+      resolve();
+    };
+
+    const stopByUser = () => {
+      finish(false);
+    };
+
+    const tick = () => {
+      if (stopped) {
+        return;
+      }
+
+      const diff = Math.abs(getCurrentScrollTop() - to);
+      if (diff <= 1) {
+        settledFrames += 1;
+        if (settledFrames >= 2) {
+          finish(true);
+          return;
+        }
+      } else {
+        settledFrames = 0;
+      }
+
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    window.addEventListener("wheel", stopByUser, { passive: true });
+    window.addEventListener("touchmove", stopByUser, { passive: true });
+    cancelActiveSpringScroll = stopByUser;
+
+    window.scrollTo({ top: to, left: 0, behavior: "smooth" });
+    rafId = window.requestAnimationFrame(tick);
+  });
+}
+
+export function springScrollTo(y: number, duration = 420) {
+  cancelActiveSpringScroll?.();
+
+  const from = getCurrentScrollTop();
+  const to = Math.min(getMaxScrollTop(), Math.max(0, y));
+  if (Math.abs(to - from) < 1) {
+    setCurrentScrollTop(to);
+    return Promise.resolve();
+  }
+
+  if (supportsNativeSmoothScroll()) {
+    return settleWithNativeSmoothScroll(to);
+  }
+
+  return new Promise<void>((resolve) => {
     let rafId = 0;
     let stopped = false;
     const startedAt = performance.now();
@@ -35,6 +105,9 @@ export function springScrollTo(y: number, duration = 420) {
       window.removeEventListener("touchmove", stopByUser);
       if (rafId) {
         window.cancelAnimationFrame(rafId);
+      }
+      if (cancelActiveSpringScroll === stopByUser) {
+        cancelActiveSpringScroll = null;
       }
     };
 
@@ -47,7 +120,11 @@ export function springScrollTo(y: number, duration = 420) {
       resolve();
     };
 
-    const easeOutCubic = (progress: number) => 1 - Math.pow(1 - progress, 3);
+    const easeInOutCubic = (progress: number) => (
+      progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2
+    );
 
     const tick = (now: number) => {
       if (stopped) {
@@ -56,7 +133,7 @@ export function springScrollTo(y: number, duration = 420) {
 
       const elapsed = now - startedAt;
       const progress = Math.min(1, elapsed / duration);
-      const eased = easeOutCubic(progress);
+      const eased = easeInOutCubic(progress);
       setCurrentScrollTop(from + (to - from) * eased);
 
       if (progress >= 1) {
@@ -71,6 +148,7 @@ export function springScrollTo(y: number, duration = 420) {
 
     window.addEventListener("wheel", stopByUser, { passive: true });
     window.addEventListener("touchmove", stopByUser, { passive: true });
+    cancelActiveSpringScroll = stopByUser;
 
     rafId = window.requestAnimationFrame(tick);
   });
@@ -81,13 +159,7 @@ export function springScrollToTop() {
 }
 
 function calculateElementTop(element: HTMLElement) {
-  let top = 0;
-  let current: HTMLElement | null = element;
-  while (current) {
-    top += current.offsetTop;
-    current = current.offsetParent as HTMLElement | null;
-  }
-  return top;
+  return window.scrollY + element.getBoundingClientRect().top;
 }
 
 export function springScrollToElement(element: HTMLElement, delta = 40) {

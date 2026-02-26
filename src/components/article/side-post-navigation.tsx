@@ -40,6 +40,7 @@ function SideNavItem({
         aria-current={active ? "page" : undefined}
         className={cn(
           "min-w-0 flex-1 truncate text-left font-sans text-sm tabular-nums leading-normal transition-all duration-300",
+          active && "mori-side-nav-active",
           active
             ? "text-primary opacity-100"
             : "text-secondary opacity-55 hover:text-primary hover:opacity-80",

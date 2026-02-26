@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Special_Elite } from "next/font/google";
+import { Suspense } from "react";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { Shell } from "@/components/shell";
@@ -56,7 +57,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         className={`${inter.variable} ${specialElite.variable} min-h-screen bg-bg text-primary antialiased`}
       >
         <ThemeProvider>
-          <ViewTransitionProvider />
+          <Suspense fallback={null}>
+            <ViewTransitionProvider />
+          </Suspense>
           <Shell context={context} navItems={navItems}>
             {children}
           </Shell>

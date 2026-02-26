@@ -3,6 +3,8 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 
+import { springScrollToTop } from "@/lib/scroller";
+
 type ViewTransitionDocument = Document & {
   startViewTransition?: (updateCallback: () => void | Promise<void>) => {
     finished: Promise<void>;
@@ -19,6 +21,7 @@ export function ViewTransitionProvider() {
   const searchParams = useSearchParams();
   const pendingResolveRef = useRef<(() => void) | null>(null);
   const pendingTimerRef = useRef<number | null>(null);
+  const pendingSmoothTopRef = useRef(false);
 
   const completePendingNavigation = useCallback(() => {
     if (pendingTimerRef.current != null) {
@@ -33,6 +36,10 @@ export function ViewTransitionProvider() {
 
   useEffect(() => {
     completePendingNavigation();
+    if (pendingSmoothTopRef.current) {
+      pendingSmoothTopRef.current = false;
+      void springScrollToTop();
+    }
   }, [pathname, searchParams, completePendingNavigation]);
 
   useEffect(
@@ -98,9 +105,14 @@ export function ViewTransitionProvider() {
       const nextHref = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
       const doc = document as ViewTransitionDocument;
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const isPostToPost =
+        window.location.pathname.startsWith("/post/")
+        && nextUrl.pathname.startsWith("/post/")
+        && nextUrl.pathname !== window.location.pathname;
 
       if (!doc.startViewTransition || reducedMotion) {
-        router.push(nextHref);
+        pendingSmoothTopRef.current = isPostToPost;
+        router.push(nextHref, { scroll: !isPostToPost });
         return;
       }
 
@@ -113,7 +125,8 @@ export function ViewTransitionProvider() {
               pendingTimerRef.current = window.setTimeout(() => {
                 completePendingNavigation();
               }, 1800);
-              router.push(nextHref);
+              pendingSmoothTopRef.current = isPostToPost;
+              router.push(nextHref, { scroll: !isPostToPost });
             }),
         )
         .finished.catch(() => {

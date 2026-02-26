@@ -132,6 +132,26 @@ a {
   view-transition-name: mori-page;
 }
 
+.mori-post-left-rail {
+  view-transition-name: mori-post-left-rail;
+}
+
+.mori-post-right-rail {
+  view-transition-name: mori-post-right-rail;
+}
+
+.mori-side-nav-active {
+  view-transition-name: mori-side-nav-active;
+}
+
+.mori-toc-active {
+  view-transition-name: mori-toc-active;
+}
+
+.mori-toc-active-bar {
+  view-transition-name: mori-toc-active-bar;
+}
+
 @keyframes mori-view-transition-in {
   from {
     opacity: 0;
@@ -172,6 +192,29 @@ a {
 
   ::view-transition-new(mori-page) {
     animation-name: mori-view-transition-in;
+  }
+
+  ::view-transition-group(mori-post-left-rail),
+  ::view-transition-group(mori-post-right-rail),
+  ::view-transition-group(mori-side-nav-active),
+  ::view-transition-group(mori-toc-active),
+  ::view-transition-group(mori-toc-active-bar) {
+    animation-duration: 320ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  ::view-transition-old(mori-post-left-rail),
+  ::view-transition-new(mori-post-left-rail),
+  ::view-transition-old(mori-post-right-rail),
+  ::view-transition-new(mori-post-right-rail),
+  ::view-transition-old(mori-side-nav-active),
+  ::view-transition-new(mori-side-nav-active),
+  ::view-transition-old(mori-toc-active),
+  ::view-transition-new(mori-toc-active),
+  ::view-transition-old(mori-toc-active-bar),
+  ::view-transition-new(mori-toc-active-bar) {
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    mix-blend-mode: normal;
   }
 }
 

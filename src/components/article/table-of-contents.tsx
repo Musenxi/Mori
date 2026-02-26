@@ -177,7 +177,7 @@ export function TableOfContents({
             const active = resolvedActiveId === item.id;
             return (
               <li key={item.id} className="relative leading-none">
-                {active ? <span className="absolute inset-y-[3px] left-0 w-[2px] rounded-sm bg-primary" aria-hidden /> : null}
+                {active ? <span className="mori-toc-active-bar absolute inset-y-[3px] left-0 w-[2px] rounded-sm bg-primary" aria-hidden /> : null}
                 <a
                   ref={active ? activeLinkRef : null}
                   href={`#${item.id}`}
@@ -189,7 +189,7 @@ export function TableOfContents({
                   className={cn(
                     "relative mb-[2px] inline-block min-w-0 max-w-full truncate text-left font-sans leading-normal tabular-nums text-secondary opacity-55 transition-all duration-300 hover:opacity-90",
                     itemTextStyle(item.level),
-                    active && "ml-2 text-primary opacity-100",
+                    active && "mori-toc-active ml-2 text-primary opacity-100",
                   )}
                   style={{
                     paddingLeft: itemIndent(item.level),
