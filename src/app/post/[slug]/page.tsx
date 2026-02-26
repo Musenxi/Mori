@@ -77,6 +77,7 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
 
           <section className="min-[1440px]:mx-auto min-[1440px]:grid min-[1440px]:max-w-[1440px] min-[1440px]:grid-cols-[180px_850px_200px] min-[1440px]:gap-x-[95px]">
             <aside
+              data-side-nav-scroll-container
               className="mori-post-left-rail hidden min-[1440px]:sticky min-[1440px]:top-24 min-[1440px]:block min-[1440px]:w-[180px] min-[1440px]:max-h-[calc(100vh-7rem)] min-[1440px]:self-start min-[1440px]:justify-self-end min-[1440px]:overflow-y-auto min-[1440px]:pr-1"
             >
               <SidePostNavigation

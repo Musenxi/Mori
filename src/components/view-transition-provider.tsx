@@ -124,7 +124,7 @@ export function ViewTransitionProvider() {
               pendingResolveRef.current = resolve;
               pendingTimerRef.current = window.setTimeout(() => {
                 completePendingNavigation();
-              }, 1800);
+              }, 4500);
               pendingSmoothTopRef.current = isPostToPost;
               router.push(nextHref, { scroll: !isPostToPost });
             }),
