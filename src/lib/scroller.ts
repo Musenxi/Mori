@@ -2,6 +2,11 @@
 
 let cancelActiveSpringScroll: (() => void) | null = null;
 
+interface SpringScrollOptions {
+  duration?: number;
+  preferNativeSmooth?: boolean;
+}
+
 function getCurrentScrollTop() {
   return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
 }
@@ -18,6 +23,20 @@ function getMaxScrollTop() {
 
 function supportsNativeSmoothScroll() {
   return "scrollBehavior" in document.documentElement.style;
+}
+
+function normalizeSpringScrollOptions(optionsOrDuration?: number | SpringScrollOptions): Required<SpringScrollOptions> {
+  if (typeof optionsOrDuration === "number") {
+    return {
+      duration: optionsOrDuration,
+      preferNativeSmooth: true,
+    };
+  }
+
+  return {
+    duration: optionsOrDuration?.duration ?? 420,
+    preferNativeSmooth: optionsOrDuration?.preferNativeSmooth ?? true,
+  };
 }
 
 function settleWithNativeSmoothScroll(to: number) {
@@ -81,8 +100,9 @@ function settleWithNativeSmoothScroll(to: number) {
   });
 }
 
-export function springScrollTo(y: number, duration = 420) {
+export function springScrollTo(y: number, optionsOrDuration: number | SpringScrollOptions = 420) {
   cancelActiveSpringScroll?.();
+  const { duration, preferNativeSmooth } = normalizeSpringScrollOptions(optionsOrDuration);
 
   const from = getCurrentScrollTop();
   const to = Math.min(getMaxScrollTop(), Math.max(0, y));
@@ -91,7 +111,7 @@ export function springScrollTo(y: number, duration = 420) {
     return Promise.resolve();
   }
 
-  if (supportsNativeSmoothScroll()) {
+  if (preferNativeSmooth && supportsNativeSmoothScroll()) {
     return settleWithNativeSmoothScroll(to);
   }
 
@@ -154,14 +174,18 @@ export function springScrollTo(y: number, duration = 420) {
   });
 }
 
-export function springScrollToTop() {
-  return springScrollTo(0);
+export function springScrollToTop(optionsOrDuration: number | SpringScrollOptions = 420) {
+  return springScrollTo(0, optionsOrDuration);
 }
 
 function calculateElementTop(element: HTMLElement) {
   return window.scrollY + element.getBoundingClientRect().top;
 }
 
-export function springScrollToElement(element: HTMLElement, delta = 40) {
-  return springScrollTo(calculateElementTop(element) + delta);
+export function springScrollToElement(
+  element: HTMLElement,
+  delta = 40,
+  optionsOrDuration: number | SpringScrollOptions = 420,
+) {
+  return springScrollTo(calculateElementTop(element) + delta, optionsOrDuration);
 }

@@ -38,7 +38,7 @@ export function ViewTransitionProvider() {
     completePendingNavigation();
     if (pendingSmoothTopRef.current) {
       pendingSmoothTopRef.current = false;
-      void springScrollToTop();
+      void springScrollToTop({ duration: 680, preferNativeSmooth: false });
     }
   }, [pathname, searchParams, completePendingNavigation]);
 

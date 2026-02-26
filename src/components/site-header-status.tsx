@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/lib/cn";
@@ -49,7 +50,22 @@ function isSnapshotStale(snapshot: ProcessReporterStatusSnapshot | null) {
 }
 
 function AnimatedText({ text }: { text: string }) {
-  return <span className="truncate">{text}</span>;
+  return (
+    <span className="relative inline-flex min-w-0">
+      <AnimatePresence initial={false} mode="wait">
+        <motion.span
+          key={text}
+          initial={{ opacity: 0, y: 4, filter: "blur(2px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={{ opacity: 0, y: -4, filter: "blur(2px)" }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="block truncate"
+        >
+          {text}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
 }
 
 function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {

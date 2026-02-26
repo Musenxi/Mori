@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { usePathname } from "next/navigation";
 
@@ -46,13 +46,49 @@ function MenuIcon({ open }: { open: boolean }) {
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const clearClassTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (clearClassTimerRef.current != null) {
+        window.clearTimeout(clearClassTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const triggerGlobalThemeTransition = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      return;
+    }
+
+    const root = document.documentElement;
+    root.classList.add("mori-theme-switching");
+
+    if (clearClassTimerRef.current != null) {
+      window.clearTimeout(clearClassTimerRef.current);
+    }
+
+    clearClassTimerRef.current = window.setTimeout(() => {
+      root.classList.remove("mori-theme-switching");
+      clearClassTimerRef.current = null;
+    }, 420);
+  };
 
   return (
     <button
       type="button"
       aria-label="切换主题"
       className="font-sans text-[18px] leading-none text-primary transition-opacity hover:opacity-70"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={() => {
+        triggerGlobalThemeTransition();
+        setTheme(isDark ? "light" : "dark");
+      }}
     >
       ◑
     </button>
