@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { usePathname } from "next/navigation";
 
@@ -45,8 +45,8 @@ function MenuIcon({ open }: { open: boolean }) {
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
   const clearClassTimerRef = useRef<number | null>(null);
+  const mountedRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -57,7 +57,7 @@ function ThemeToggle() {
     [],
   );
 
-  const triggerGlobalThemeTransition = () => {
+  const triggerGlobalThemeTransition = useCallback(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -78,15 +78,42 @@ function ThemeToggle() {
       root.classList.remove("mori-theme-switching");
       clearClassTimerRef.current = null;
     }, 420);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+
+    triggerGlobalThemeTransition();
+  }, [resolvedTheme, triggerGlobalThemeTransition]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleSystemThemeChange = () => {
+      setTheme("system");
+    };
+
+    media.addEventListener("change", handleSystemThemeChange);
+    return () => {
+      media.removeEventListener("change", handleSystemThemeChange);
+    };
+  }, [setTheme]);
+
+  const isDark = resolvedTheme === "dark";
 
   return (
     <button
       type="button"
-      aria-label="切换主题"
+      aria-label="切换主题（系统变化自动同步）"
+      title="切换主题（系统变化自动同步）"
       className="font-sans text-[18px] leading-none text-primary transition-opacity hover:opacity-70"
       onClick={() => {
-        triggerGlobalThemeTransition();
         setTheme(isDark ? "light" : "dark");
       }}
     >

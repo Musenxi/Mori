@@ -12,8 +12,10 @@ export function PostCard({ post, compact = false }: PostCardProps) {
   return (
     <article className={cn("w-full py-8", compact && "py-[15px]")}>
       <Link href={post.redirect || `/post/${post.slug}`} prefetch={!post.redirect ? false : undefined} target={post.redirect ? "_blank" : undefined} rel={post.redirect ? "noopener noreferrer" : undefined} className="group block">
-        <div className="flex items-center gap-3">
-          <time className="font-sans text-xs tracking-[1px] text-muted">{post.shortDate}</time>
+        <div className="flex items-center gap-1">
+          <time className="w-[5ch] shrink-0 font-sans text-xs tabular-nums tracking-[0.6px] text-muted">
+            {post.shortDate}
+          </time>
           <span className="inline-flex items-center justify-center rounded px-[6px] py-px text-[10px] text-muted bg-tag">
             {post.categoryName}
           </span>
