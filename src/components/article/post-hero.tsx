@@ -197,7 +197,13 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
   );
 
   useEffect(() => {
-    void requestCounter("view");
+    const timer = window.setTimeout(() => {
+      void requestCounter("view");
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [requestCounter]);
 
   useEffect(() => {

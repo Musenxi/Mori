@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import "../../article-content-critical.css";
 import { ColumnInfoCard } from "@/components/column-info-card";
 import { PostContentFallback } from "@/components/page-loading-fallbacks";
-import { buildNavItems } from "@/lib/navigation";
 import { getPostDetailData, getSiteContext } from "@/lib/site-data";
 import { getPosts } from "@/lib/typecho-client";
 import { ArticleContentDeferredStyles } from "@/components/article/article-content-deferred-styles";

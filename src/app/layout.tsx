@@ -3,6 +3,7 @@ import { Inter, Special_Elite } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { Shell } from "@/components/shell";
+import { ViewTransitionProvider } from "@/components/view-transition-provider";
 import { getSettings } from "@/lib/typecho-client";
 import { getSiteContext } from "@/lib/site-data";
 import { buildNavItems } from "@/lib/navigation";
@@ -55,6 +56,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         className={`${inter.variable} ${specialElite.variable} min-h-screen bg-bg text-primary antialiased`}
       >
         <ThemeProvider>
+          <ViewTransitionProvider />
           <Shell context={context} navItems={navItems}>
             {children}
           </Shell>

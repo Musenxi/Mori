@@ -49,30 +49,7 @@ function isSnapshotStale(snapshot: ProcessReporterStatusSnapshot | null) {
 }
 
 function AnimatedText({ text }: { text: string }) {
-  const [displayText, setDisplayText] = useState(text);
-  const [animating, setAnimating] = useState(false);
-
-  useEffect(() => {
-    if (text !== displayText) {
-      setAnimating(true);
-      const timer = setTimeout(() => {
-        setDisplayText(text);
-        setAnimating(false);
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [text, displayText]);
-
-  return (
-    <span
-      className={cn(
-        "truncate transition-all duration-200",
-        animating ? "scale-95 blur-[2px] opacity-0" : "scale-100 blur-0 opacity-100"
-      )}
-    >
-      {displayText}
-    </span>
-  );
+  return <span className="truncate">{text}</span>;
 }
 
 function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {

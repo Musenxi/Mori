@@ -17,7 +17,7 @@ export function Shell({ context, navItems, children }: ShellProps) {
     <div className="flex min-h-screen flex-col bg-bg text-primary">
       <SiteHeader blogTitle={context.blogTitle} navItems={navItems} />
       {!context.configured ? <NoConfigAlert /> : null}
-      <div className="flex-1">{children}</div>
+      <div className="mori-view-transition-region flex-1">{children}</div>
       <MarkdownRuntimeLazy />
       <SiteFooter blogTitle={context.blogTitle} />
     </div>

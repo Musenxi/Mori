@@ -160,7 +160,6 @@ export function TocActions({ cid, slug, initialLikeCount, className }: TocAction
     // Subscribe to realtime counter updates
     useEffect(() => {
         let disposed = false;
-        let socketRef: Awaited<ReturnType<typeof getRealtimeSocket>> | null = null;
 
         async function setupSocketSubscription() {
             try {
@@ -168,8 +167,6 @@ export function TocActions({ cid, slug, initialLikeCount, className }: TocAction
                 if (disposed) {
                     return;
                 }
-
-                socketRef = socket;
 
                 const handleCounterUpdated = (payload: PostCounterRealtimePayload) => {
                     const payloadCid = Number(payload?.cid);
