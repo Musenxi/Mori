@@ -22,6 +22,81 @@ export function ViewTransitionProvider() {
   const pendingResolveRef = useRef<(() => void) | null>(null);
   const pendingTimerRef = useRef<number | null>(null);
   const pendingSmoothTopRef = useRef(false);
+  const layoutLockTimerRef = useRef<number | null>(null);
+  const footerRevealTimerRef = useRef<number | null>(null);
+
+  const clearFooterDeferredState = useCallback(() => {
+    if (footerRevealTimerRef.current != null) {
+      window.clearTimeout(footerRevealTimerRef.current);
+      footerRevealTimerRef.current = null;
+    }
+
+    document.documentElement.classList.remove("mori-footer-deferred");
+  }, []);
+
+  const hideFooterForRouteSwitch = useCallback(() => {
+    if (footerRevealTimerRef.current != null) {
+      window.clearTimeout(footerRevealTimerRef.current);
+      footerRevealTimerRef.current = null;
+    }
+
+    document.documentElement.classList.add("mori-footer-deferred");
+  }, []);
+
+  const scheduleFooterReveal = useCallback(
+    (delayMs: number) => {
+      if (footerRevealTimerRef.current != null) {
+        window.clearTimeout(footerRevealTimerRef.current);
+      }
+
+      footerRevealTimerRef.current = window.setTimeout(() => {
+        document.documentElement.classList.remove("mori-footer-deferred");
+        footerRevealTimerRef.current = null;
+      }, delayMs);
+    },
+    [],
+  );
+
+  const clearRouteLayoutLock = useCallback(() => {
+    if (layoutLockTimerRef.current != null) {
+      window.clearTimeout(layoutLockTimerRef.current);
+      layoutLockTimerRef.current = null;
+    }
+
+    document.documentElement.classList.remove("mori-route-switching");
+    document.documentElement.style.removeProperty("--mori-route-lock-height");
+  }, []);
+
+  const scheduleRouteLayoutLockRelease = useCallback(
+    (delayMs: number) => {
+      if (layoutLockTimerRef.current != null) {
+        window.clearTimeout(layoutLockTimerRef.current);
+      }
+
+      layoutLockTimerRef.current = window.setTimeout(() => {
+        clearRouteLayoutLock();
+      }, delayMs);
+    },
+    [clearRouteLayoutLock],
+  );
+
+  const lockCurrentRouteLayoutHeight = useCallback(() => {
+    const transitionRegion = document.querySelector<HTMLElement>(".mori-view-transition-region");
+    if (!transitionRegion) {
+      return;
+    }
+
+    const regionHeight = Math.ceil(transitionRegion.getBoundingClientRect().height);
+    if (!Number.isFinite(regionHeight) || regionHeight <= 0) {
+      return;
+    }
+
+    document.documentElement.style.setProperty("--mori-route-lock-height", `${regionHeight}px`);
+    document.documentElement.classList.add("mori-route-switching");
+    hideFooterForRouteSwitch();
+    scheduleRouteLayoutLockRelease(5200);
+    scheduleFooterReveal(5400);
+  }, [hideFooterForRouteSwitch, scheduleFooterReveal, scheduleRouteLayoutLockRelease]);
 
   const completePendingNavigation = useCallback(() => {
     if (pendingTimerRef.current != null) {
@@ -36,17 +111,21 @@ export function ViewTransitionProvider() {
 
   useEffect(() => {
     completePendingNavigation();
+    scheduleRouteLayoutLockRelease(260);
+    scheduleFooterReveal(360);
     if (pendingSmoothTopRef.current) {
       pendingSmoothTopRef.current = false;
       void springScrollToTop({ duration: 680, preferNativeSmooth: false });
     }
-  }, [pathname, searchParams, completePendingNavigation]);
+  }, [pathname, searchParams, completePendingNavigation, scheduleFooterReveal, scheduleRouteLayoutLockRelease]);
 
   useEffect(
     () => () => {
       completePendingNavigation();
+      clearRouteLayoutLock();
+      clearFooterDeferredState();
     },
-    [completePendingNavigation],
+    [clearFooterDeferredState, clearRouteLayoutLock, completePendingNavigation],
   );
 
   useEffect(() => {
@@ -111,6 +190,7 @@ export function ViewTransitionProvider() {
         && nextUrl.pathname !== window.location.pathname;
 
       if (!doc.startViewTransition || reducedMotion) {
+        lockCurrentRouteLayoutHeight();
         pendingSmoothTopRef.current = isPostToPost;
         router.push(nextHref, { scroll: !isPostToPost });
         return;
@@ -125,6 +205,7 @@ export function ViewTransitionProvider() {
               pendingTimerRef.current = window.setTimeout(() => {
                 completePendingNavigation();
               }, 4500);
+              lockCurrentRouteLayoutHeight();
               pendingSmoothTopRef.current = isPostToPost;
               router.push(nextHref, { scroll: !isPostToPost });
             }),
@@ -138,7 +219,7 @@ export function ViewTransitionProvider() {
     return () => {
       document.removeEventListener("click", onClick, true);
     };
-  }, [router, completePendingNavigation]);
+  }, [router, completePendingNavigation, lockCurrentRouteLayoutHeight]);
 
   return null;
 }

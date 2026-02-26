@@ -139,6 +139,18 @@ a {
   view-transition-name: mori-page;
 }
 
+html.mori-route-switching .mori-view-transition-region {
+  min-height: var(--mori-route-lock-height, 0px);
+}
+
+.mori-site-footer {
+  visibility: visible;
+}
+
+html.mori-footer-deferred .mori-site-footer {
+  visibility: hidden;
+}
+
 .mori-post-left-rail {
   view-transition-name: mori-post-left-rail;
 }
