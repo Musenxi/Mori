@@ -229,6 +229,7 @@ export function normalizePost(raw: TypechoPostRaw): NormalizedPost {
 
 export function normalizePosts(rawPosts: TypechoPostRaw[]) {
   return rawPosts
+    .filter((raw) => findField(raw, ["show"]) !== "0")
     .map(normalizePost)
     .sort((a, b) => b.created - a.created);
 }

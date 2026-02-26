@@ -309,7 +309,25 @@ export async function getUserByUid(
 export async function getPages(): Promise<TypechoPageItem[]> {
   try {
     const result = await requestTypecho<TypechoPagesResponse>("pages");
-    return result.dataSet;
+
+    // Typecho /pages API doesn't return fields, so we need to fetch them individually
+    // This runs concurrently and depends on cache mechanism to be fast
+    const pagesWithFields = await Promise.all(
+      result.dataSet.map(async (page) => {
+        try {
+          // Use longer cache for page details needed only for fields
+          const detail = await getPostByCid(page.cid, 600);
+          return {
+            ...page,
+            fields: detail.fields,
+          };
+        } catch {
+          return page;
+        }
+      })
+    );
+
+    return pagesWithFields;
   } catch {
     return [] as TypechoPageItem[];
   }
@@ -452,15 +470,15 @@ export async function createComment(
 ): Promise<TypechoCommentRaw> {
   const post = input.cid
     ? await requestTypecho<TypechoPostRaw>("post", {
-        query: { cid: input.cid, parseMarkdown: false },
-        revalidate: false,
-        userAgent,
-      })
+      query: { cid: input.cid, parseMarkdown: false },
+      revalidate: false,
+      userAgent,
+    })
     : await requestTypecho<TypechoPostRaw>("post", {
-        query: { slug: input.slug, parseMarkdown: false },
-        revalidate: false,
-        userAgent,
-      });
+      query: { slug: input.slug, parseMarkdown: false },
+      revalidate: false,
+      userAgent,
+    });
 
   const token = typeof post.csrfToken === "string" ? post.csrfToken : "";
   const resolvedCid = Number(post.cid);

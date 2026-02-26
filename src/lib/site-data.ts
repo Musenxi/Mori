@@ -247,11 +247,13 @@ export async function getSiteContext(): Promise<SiteContext> {
       blogDescription: stripAndSlice(settings.description ?? "", "静观其变，慢写人间。"),
       keywords: settings.keywords ?? "",
       configured: true,
-      pages: pages.map((page) => ({
-        cid: page.cid,
-        slug: page.slug,
-        title: page.title,
-      })),
+      pages: pages
+        .filter((page) => page.fields?.show?.value !== "0")
+        .map((page) => ({
+          cid: page.cid,
+          slug: page.slug,
+          title: page.title,
+        })),
     };
   } catch {
     return {

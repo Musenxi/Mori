@@ -113,6 +113,7 @@ export interface TypechoPageItem {
   title: string;
   created: number;
   slug: string;
+  fields?: Record<string, TypechoField>;
 }
 
 export interface TypechoPagesResponse {
