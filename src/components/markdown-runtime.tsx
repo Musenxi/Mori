@@ -308,12 +308,38 @@ export function MarkdownRuntime() {
       });
     };
 
+    const shuffleFriendLinks = () => {
+      if (disposed) {
+        return;
+      }
+
+      const containers = Array.from(document.querySelectorAll<HTMLElement>('.mori-friend-links:not([data-shuffled="true"])'));
+      containers.forEach((container) => {
+        container.setAttribute("data-shuffled", "true");
+        const cards = Array.from(container.children);
+        if (cards.length <= 1) {
+          return;
+        }
+
+        for (let i = cards.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const temp = cards[i];
+          cards[i] = cards[j] as Element;
+          cards[j] = temp as Element;
+        }
+
+        cards.forEach((card) => container.appendChild(card));
+      });
+    };
+
     const observer = new MutationObserver(() => {
       cleanupRemovedExcalidraw();
       mountAllExcalidraw();
+      shuffleFriendLinks();
     });
 
     mountAllExcalidraw();
+    shuffleFriendLinks();
     observer.observe(document.body, {
       childList: true,
       subtree: true,
