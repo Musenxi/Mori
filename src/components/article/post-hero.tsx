@@ -90,6 +90,8 @@ function MetaItem({
 }
 
 export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProps) {
+  const fallbackCoverSrc = typeof post.coverImage === "string" ? post.coverImage.trim() : "";
+
   const [viewsNum, setViewsNum] = useState<number | null>(() => {
     const parsed = Number.parseInt(readCount.replace(/[^\d]/g, ""), 10);
     return Number.isFinite(parsed) ? parsed : null;
@@ -352,14 +354,14 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
         </MetaItem>
       </div>
 
-      {post.coverImage ? (
+      {fallbackCoverSrc ? (
         <figure className="w-full">
           <Image
-            src={post.coverImage}
+            src={fallbackCoverSrc}
             alt={post.title}
             width={1104}
             height={460}
-            unoptimized
+            loading="lazy"
             className="h-[245px] w-full object-cover md:h-[460px]"
           />
         </figure>

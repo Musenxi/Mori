@@ -211,6 +211,58 @@ export function MarkdownRuntime() {
     const pendingRootUnmounts = new Set<Root>();
     let disposed = false;
 
+    const enhanceImages = () => {
+      if (disposed) {
+        return;
+      }
+
+      const images = Array.from(document.querySelectorAll<HTMLImageElement>("img"));
+      images.forEach((image) => {
+        if (!image.getAttribute("loading")) {
+          image.setAttribute("loading", "lazy");
+        }
+        if (!image.getAttribute("decoding")) {
+          image.setAttribute("decoding", "async");
+        }
+
+        if (image.dataset.moriImageFallbackBound === "1") {
+          return;
+        }
+
+        const fallbackSrc = image.getAttribute("data-origin-src")?.trim();
+        if (!fallbackSrc) {
+          return;
+        }
+
+        image.dataset.moriImageFallbackBound = "1";
+
+        const applyFallback = () => {
+          const currentSrc = image.getAttribute("src")?.trim();
+          if (!currentSrc || currentSrc === fallbackSrc) {
+            image.removeAttribute("data-origin-src");
+            return false;
+          }
+
+          image.setAttribute("src", fallbackSrc);
+          image.removeAttribute("data-origin-src");
+          return true;
+        };
+
+        const handleImageError = () => {
+          const switched = applyFallback();
+          if (!switched) {
+            image.removeEventListener("error", handleImageError);
+          }
+        };
+
+        image.addEventListener("error", handleImageError);
+
+        if (image.complete && image.naturalWidth === 0) {
+          handleImageError();
+        }
+      });
+    };
+
     const scheduleRootUnmount = (root: Root) => {
       if (pendingRootUnmounts.has(root)) {
         return;
@@ -336,10 +388,12 @@ export function MarkdownRuntime() {
       cleanupRemovedExcalidraw();
       mountAllExcalidraw();
       shuffleFriendLinks();
+      enhanceImages();
     });
 
     mountAllExcalidraw();
     shuffleFriendLinks();
+    enhanceImages();
     observer.observe(document.body, {
       childList: true,
       subtree: true,

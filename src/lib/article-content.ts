@@ -1,5 +1,6 @@
 import sanitizeHtml from "sanitize-html";
 
+import { toNextImageProxySrc } from "./image-url";
 import { renderMarkdownToHtml } from "./markdown-render";
 import { stripHtml } from "./typecho-normalize";
 import { TocItem } from "./typecho-types";
@@ -97,7 +98,18 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   ],
   allowedAttributes: {
     a: ["href", "title", "target", "rel"],
-    img: ["src", "alt", "title", "width", "height", "loading", "class", "aria-hidden"],
+    img: [
+      "src",
+      "alt",
+      "title",
+      "width",
+      "height",
+      "loading",
+      "decoding",
+      "class",
+      "aria-hidden",
+      "data-origin-src",
+    ],
     svg: ["class", "viewBox", "width", "height", "aria-hidden", "fill"],
     path: ["d", "fill", "fill-rule", "clip-rule"],
     iframe: [
@@ -186,13 +198,23 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
         attribs: inputAttributes,
       };
     },
-    img: (tagName, attribs) => ({
-      tagName,
-      attribs: {
-        ...attribs,
-        loading: attribs.loading ?? "lazy",
-      },
-    }),
+    img: (tagName, attribs) => {
+      const source = typeof attribs.src === "string" ? attribs.src.trim() : "";
+      const optimizedSource = toNextImageProxySrc(source);
+
+      return {
+        tagName,
+        attribs: {
+          ...attribs,
+          src: optimizedSource || source,
+          loading: attribs.loading ?? "lazy",
+          decoding: attribs.decoding ?? "async",
+          ...(optimizedSource && source && optimizedSource !== source
+            ? { "data-origin-src": source }
+            : {}),
+        },
+      };
+    },
     iframe: (tagName, attribs) => {
       const src = typeof attribs.src === "string" ? attribs.src.trim() : "";
       const safe =

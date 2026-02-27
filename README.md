@@ -19,6 +19,7 @@
 - Tailwind CSS v4
 - `next-themes`（日/夜主题切换）
 - `sanitize-html`（文章与评论 HTML 安全过滤）
+- Next Image Optimization API（`/_next/image`，自动协商 AVIF/WebP）
 - Socket.IO（计数与在线状态实时同步）
 
 ## 本地运行
@@ -106,6 +107,14 @@ REDIS_KEY_PREFIX="mori"
 - 如果同时配置了 `REDIS_URL` 和 `REDIS_HOST`，系统会优先使用 `REDIS_URL`。
 - 如果密码含有 `@`、`:`、`/`、`?`、`#` 等字符，写在 `REDIS_URL` 时请做 URL 编码（例如 `@` -> `%40`）。
 - 修改 `.env.local` 后请重启应用进程使配置生效。
+
+## 图片优化策略
+
+- 文章正文中的图片（含 Markdown 图片、友链头像等）会被改写为 `/_next/image` 代理 URL，默认参数为 `w=1600&q=75`。
+- 文章头图使用 `next/image` 原生优化链路，不再走 `unoptimized`。
+- 输出格式由 Next 按浏览器 `Accept` 自动协商：优先 `AVIF`，其次 `WebP`，最终回退原始编码格式。
+- 正文图片保留原始地址并在前端做失败回退：当 `/_next/image` 请求失败时会自动切回原图 URL。
+- `images.deviceSizes` 已包含：`640, 750, 828, 1080, 1200, 1600, 1920, 2048, 3840`。手动拼接 `/_next/image` 时，`w` 必须使用该集合中的值，否则会返回 `400`。
 
 文章浏览/点赞统计：
 
