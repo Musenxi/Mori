@@ -265,8 +265,16 @@ export function flattenArchives(archives: TypechoArchivesResponse) {
   return normalizePosts(flattened);
 }
 
-export function normalizeCommentTree(raw: TypechoCommentRaw[], parentAuthor?: string): NormalizedComment[] {
-  const sorted = [...raw].sort((a, b) => Number(b.created) - Number(a.created));
+export function normalizeCommentTree(
+  raw: TypechoCommentRaw[],
+  parentAuthor?: string,
+  depth = 0,
+): NormalizedComment[] {
+  const sorted = [...raw].sort((a, b) => {
+    const left = Number(a.created);
+    const right = Number(b.created);
+    return depth === 0 ? right - left : left - right;
+  });
 
   return sorted.map((comment) => {
     const rawMarkdownHtml = renderSimpleMarkdownToHtml(comment.text ?? "");
@@ -303,7 +311,7 @@ export function normalizeCommentTree(raw: TypechoCommentRaw[], parentAuthor?: st
       html,
       mailHash: comment.mailHash,
       avatarUrl: buildGravatarUrl(comment.mailHash),
-      children: normalizeCommentTree(comment.children ?? [], comment.author),
+      children: normalizeCommentTree(comment.children ?? [], comment.author, depth + 1),
     };
   });
 }
