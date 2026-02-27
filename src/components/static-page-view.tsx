@@ -30,6 +30,7 @@ export function StaticPageContent({
             <div
               className="mori-stagger-item prose-article mt-8"
               style={{ animationDelay: "90ms" }}
+              suppressHydrationWarning
               dangerouslySetInnerHTML={{ __html: page.html }}
             />
           ) : (

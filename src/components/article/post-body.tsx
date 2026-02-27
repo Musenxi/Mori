@@ -7,7 +7,11 @@ interface PostBodyProps {
 export function PostBody({ post }: PostBodyProps) {
   return (
     <article className="flex w-full flex-col items-center gap-6">
-      <div className="prose-article w-full" dangerouslySetInnerHTML={{ __html: post.html }} />
+      <div
+        className="prose-article w-full"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: post.html }}
+      />
 
       {post.tags.length > 0 ? (
         <div className="flex w-full flex-wrap gap-3 pt-2">

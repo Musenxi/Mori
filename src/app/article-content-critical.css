@@ -1,7 +1,7 @@
 .prose-article {
   color: var(--primary);
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: visible;
   font-family: var(--font-noto-serif-sc, "Songti SC", "Noto Serif CJK SC", serif);
 }
 
@@ -114,6 +114,99 @@
   border-radius: 6px;
 }
 
+.prose-article > img[data-mori-markdown-image="1"] {
+  margin-top: 40px;
+  margin-bottom: 40px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 80% !important;
+  max-width: none !important;
+}
+
+.prose-article .mori-markdown-image-link {
+  display: block;
+  text-decoration: none;
+}
+
+.prose-article > .mori-markdown-image-link {
+  margin-top: 40px;
+  margin-bottom: 40px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 80%;
+  max-width: none;
+}
+
+.prose-article > .mori-markdown-image-link > img[data-mori-markdown-image="1"] {
+  margin-top: 0;
+  width: 100%;
+  max-width: none !important;
+}
+
+.prose-article .mori-image-gallery {
+  margin-top: 24px;
+}
+
+.prose-article .mori-image-gallery.is-dual {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+  margin-bottom: 20px;
+  gap: 10px;
+}
+
+.prose-article .mori-image-gallery.is-carousel {
+  display: flex;
+  height: 550px;
+  width: min(1104px, calc(100vw - 40px));
+  margin-top: 20px;
+  margin-bottom: 20px;
+  margin-left: 50%;
+  transform: translateX(-50%);
+  gap: 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose-article .mori-image-gallery-item {
+  margin: 0;
+}
+
+.prose-article .mori-image-gallery.is-carousel .mori-image-gallery-item {
+  flex: 0 0 auto;
+  height: 550px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.prose-article .mori-image-gallery.is-carousel .mori-markdown-image-link {
+  width: auto !important;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.prose-article .mori-image-gallery.is-carousel .mori-image-gallery-item img[data-mori-markdown-image="1"] {
+  width: auto !important;
+  max-width: none !important;
+  height: 475px !important;
+  object-fit: contain;
+  object-position: center;
+  border-radius: inherit;
+}
+
+.prose-article .mori-image-gallery-item img[data-mori-markdown-image="1"] {
+  margin-top: 0;
+  width: 100%;
+  max-width: none !important;
+  border-radius: 8px;
+}
+
 .prose-article .mori-owo {
   display: inline-block;
   width: 4em !important;
@@ -181,6 +274,14 @@
 }
 
 @media (min-width: 768px) {
+  .prose-article .mori-image-gallery.is-dual,
+  .prose-article .mori-image-gallery.is-carousel {
+    gap: 14px;
+  }
+
+  .prose-article .mori-image-gallery.is-carousel {
+    width: min(1104px, 100vw);
+  }
 
   .prose-article p,
   .prose-article li {

@@ -43,6 +43,7 @@ const CODE_PLACEHOLDER_REGEX =
   /<pre data-mori-code="1" data-lang="([^"]*)" data-attrs="([^"]*)"><code>([\s\S]*?)<\/code><\/pre>/g;
 const RICH_LINK_PLACEHOLDER_REGEX =
   /<div data-mori-rich-link="1" data-url="([^"]*)" data-label="([^"]*)"><\/div>/g;
+const MARKDOWN_IMAGE_ELEMENT_REGEX = /<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>/i;
 const FRIEND_LINK_LINE_REGEX = /\[([^\]]+)\]\(([^)]+)\)\s*\+\(([^)]+)\)(?:\s*\+\(([^)]*?)\))?/;
 const FRIEND_LINK_SINGLE_SRC = "\\[[^\\]]+\\]\\([^)]+\\)\\s*\\+\\([^)]+\\)(?:\\s*\\+\\([^)]*?\\))?";
 const FRIEND_LINK_BLOCK_REGEX = new RegExp(
@@ -1652,6 +1653,7 @@ const markdownOptions: MarkdownToJSX.Options = {
         const title = String(node.title || "");
         const labelText = extractTextFromMarkdownNode(node.content).trim();
         const labelHtml = toHtml(output(node.content, state));
+        const isMarkdownImageLink = MARKDOWN_IMAGE_ELEMENT_REGEX.test(labelHtml);
 
         if (!safeTarget) {
           return labelText;
@@ -1661,13 +1663,17 @@ const markdownOptions: MarkdownToJSX.Options = {
         const isExternal = Boolean(parsed && /^(https?:|mailto:|tel:)/i.test(safeTarget));
         const attrs = [
           `href="${escapeAttributeValue(safeTarget)}"`,
-          `class="mori-inline-link"`,
+          `class="${isMarkdownImageLink ? "mori-markdown-image-link" : "mori-inline-link"}"`,
           title ? `title="${escapeAttributeValue(title)}"` : "",
           isExternal ? `target="_blank"` : "",
           isExternal ? `rel="noopener noreferrer"` : "",
         ]
           .filter(Boolean)
           .join(" ");
+
+        if (isMarkdownImageLink) {
+          return `<a ${attrs}>${labelHtml}</a>`;
+        }
 
         const safeLabel = /<a\b/i.test(labelHtml)
           ? escapeAttributeValue(decodeHtmlEntities(labelHtml.replace(/<[^>]+>/g, "")).trim() || safeTarget)
@@ -1680,6 +1686,7 @@ const markdownOptions: MarkdownToJSX.Options = {
       react(node, output, state) {
         const labelText = extractTextFromMarkdownNode(node.content).trim();
         const labelHtml = toHtml(output(node.content, state));
+        const isMarkdownImageLink = MARKDOWN_IMAGE_ELEMENT_REGEX.test(labelHtml);
         const refRaw = String(node.ref || "").trim();
         const lookupKey = normalizeReferenceLinkKey(refRaw || labelText);
         const definition = activeReferenceLinkDefinitions.get(lookupKey);
@@ -1701,7 +1708,7 @@ const markdownOptions: MarkdownToJSX.Options = {
         const isExternal = Boolean(parsed && /^(https?:|mailto:|tel:)/i.test(safeTarget));
         const attrs = [
           `href="${escapeAttributeValue(safeTarget)}"`,
-          `class="mori-inline-link"`,
+          `class="${isMarkdownImageLink ? "mori-markdown-image-link" : "mori-inline-link"}"`,
           definition.title ? `title="${escapeAttributeValue(definition.title)}"` : "",
           isExternal ? `target="_blank"` : "",
           isExternal ? `rel="noopener noreferrer"` : "",
@@ -1709,11 +1716,42 @@ const markdownOptions: MarkdownToJSX.Options = {
           .filter(Boolean)
           .join(" ");
 
+        if (isMarkdownImageLink) {
+          return `<a ${attrs}>${labelHtml}</a>`;
+        }
+
         const safeLabel = /<a\b/i.test(labelHtml)
           ? escapeAttributeValue(decodeHtmlEntities(labelHtml.replace(/<[^>]+>/g, "")).trim() || safeTarget)
           : labelHtml || escapeAttributeValue(safeTarget);
 
         return `<a ${attrs}><span class="mori-link-text">${safeLabel}</span></a>`;
+      },
+    },
+    refImage: {
+      react(node) {
+        const refRaw = String(node.ref || "").trim();
+        const alt = String(node.alt || "").trim();
+        const lookupKey = normalizeReferenceLinkKey(refRaw || alt);
+        const definition = activeReferenceLinkDefinitions.get(lookupKey);
+        const safeTarget = sanitizeUrl(String(definition?.target || "").trim()) || "";
+
+        if (!safeTarget) {
+          return alt;
+        }
+
+        const title = String(definition?.title || "").trim();
+        const attrs = [
+          `src="${escapeAttributeValue(safeTarget)}"`,
+          `alt="${escapeAttributeValue(alt)}"`,
+          `loading="lazy"`,
+          `decoding="async"`,
+          `data-mori-markdown-image="1"`,
+          title ? `title="${escapeAttributeValue(title)}"` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return `<img ${attrs}>`;
       },
     },
     paragraph: {
@@ -1731,17 +1769,27 @@ const markdownOptions: MarkdownToJSX.Options = {
 
         if (meaningfulNodes.length === 1) {
           const single = meaningfulNodes[0] as Record<string, unknown>;
-          if (single?.type === "image") {
+          if (single?.type === "image" || single?.type === "refImage") {
             return toHtml(output(node.content, state));
           }
 
-          if (single?.type === "link") {
-            const target = sanitizeUrl(String(single.target || "").trim()) || "";
-            if (target && /^https?:\/\//i.test(target)) {
-              const label = extractTextFromMarkdownNode(single.content).trim();
-              return `<div data-mori-rich-link="1" data-url="${escapeAttributeValue(
-                target,
-              )}" data-label="${escapeAttributeValue(label)}"></div>`;
+          if (single?.type === "link" || single?.type === "refLink") {
+            const renderedLink = toHtml(output(node.content, state));
+            if (
+              /class="[^"]*\bmori-markdown-image-link\b[^"]*"/i.test(renderedLink) ||
+              MARKDOWN_IMAGE_ELEMENT_REGEX.test(renderedLink)
+            ) {
+              return renderedLink;
+            }
+
+            if (single?.type === "link") {
+              const target = sanitizeUrl(String(single.target || "").trim()) || "";
+              if (target && /^https?:\/\//i.test(target)) {
+                const label = extractTextFromMarkdownNode(single.content).trim();
+                return `<div data-mori-rich-link="1" data-url="${escapeAttributeValue(
+                  target,
+                )}" data-label="${escapeAttributeValue(label)}"></div>`;
+              }
             }
           }
         }

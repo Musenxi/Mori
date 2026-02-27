@@ -24,6 +24,114 @@ async function markdownToSafeHtml(rawContent: string | undefined) {
   return renderMarkdownToHtml(source);
 }
 
+const MARKDOWN_IMAGE_UNIT_PATTERN =
+  /<p>\s*(?:<a\b[^>]*\bmori-markdown-image-link\b[^>]*>\s*<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>\s*<\/a>|<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>)\s*<\/p>|<a\b[^>]*\bmori-markdown-image-link\b[^>]*>\s*<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>\s*<\/a>|<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>/gi;
+
+type MarkdownImageUnit = {
+  html: string;
+  start: number;
+  end: number;
+};
+
+function normalizeMarkdownImageUnitHtml(unitHtml: string) {
+  const paragraphMatch = unitHtml.match(/^<p>\s*([\s\S]*?)\s*<\/p>$/i);
+  return paragraphMatch ? paragraphMatch[1] : unitHtml;
+}
+
+function buildMarkdownImageGallery(units: MarkdownImageUnit[]) {
+  const count = units.length;
+  if (count < 2) {
+    return "";
+  }
+
+  const layoutClass = count === 2 ? "is-dual" : "is-carousel";
+  const items = units
+    .map((unit) => `<figure class="mori-image-gallery-item">${normalizeMarkdownImageUnitHtml(unit.html)}</figure>`)
+    .join("");
+
+  return `<div class="mori-image-gallery ${layoutClass}" data-image-count="${count}">${items}</div>`;
+}
+
+function applyMarkdownImageGalleryLayout(html: string) {
+  if (!html || !html.includes("data-mori-markdown-image=\"1\"")) {
+    return html;
+  }
+
+  MARKDOWN_IMAGE_UNIT_PATTERN.lastIndex = 0;
+  const units: MarkdownImageUnit[] = [];
+  let match: RegExpExecArray | null = MARKDOWN_IMAGE_UNIT_PATTERN.exec(html);
+  while (match) {
+    const matchedHtml = match[0];
+    const start = typeof match.index === "number" ? match.index : -1;
+    if (start >= 0) {
+      units.push({
+        html: matchedHtml,
+        start,
+        end: start + matchedHtml.length,
+      });
+    }
+
+    match = MARKDOWN_IMAGE_UNIT_PATTERN.exec(html);
+  }
+
+  if (units.length < 2) {
+    return html;
+  }
+
+  const replacements: Array<{ start: number; end: number; html: string }> = [];
+  let activeGroup: MarkdownImageUnit[] = [];
+
+  const flushActiveGroup = () => {
+    if (activeGroup.length < 2) {
+      activeGroup = [];
+      return;
+    }
+
+    const first = activeGroup[0];
+    const last = activeGroup[activeGroup.length - 1];
+    replacements.push({
+      start: first.start,
+      end: last.end,
+      html: buildMarkdownImageGallery(activeGroup),
+    });
+    activeGroup = [];
+  };
+
+  units.forEach((unit, index) => {
+    if (activeGroup.length === 0) {
+      activeGroup = [unit];
+      return;
+    }
+
+    const previous = units[index - 1];
+    const between = html.slice(previous.end, unit.start);
+    if (/^\s*$/.test(between)) {
+      activeGroup.push(unit);
+      return;
+    }
+
+    flushActiveGroup();
+    activeGroup = [unit];
+  });
+
+  flushActiveGroup();
+
+  if (replacements.length === 0) {
+    return html;
+  }
+
+  let nextHtml = html;
+  for (let i = replacements.length - 1; i >= 0; i -= 1) {
+    const replacement = replacements[i];
+    nextHtml =
+      nextHtml.slice(0, replacement.start) +
+      replacement.html +
+      nextHtml.slice(replacement.end);
+  }
+
+  return nextHtml;
+}
+
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
     "h1",
@@ -240,28 +348,32 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
 export async function prepareArticleContent(rawContent: string | undefined) {
   const htmlSource = await markdownToSafeHtml(rawContent);
   const cleaned = sanitizeHtml(htmlSource, SANITIZE_OPTIONS);
+  const withImageGalleries = applyMarkdownImageGalleryLayout(cleaned);
 
   const tocItems: TocItem[] = [];
   let index = 0;
 
-  const htmlWithHeadingIds = cleaned.replace(/<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi, (_, level, attrs, inner) => {
-    index += 1;
-    const text = stripHtml(inner);
-    const base = slugifyHeading(text);
-    const id = `${base}-${index}`;
-    const headingLevel = Number(level);
+  const htmlWithHeadingIds = withImageGalleries.replace(
+    /<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi,
+    (_, level, attrs, inner) => {
+      index += 1;
+      const text = stripHtml(inner);
+      const base = slugifyHeading(text);
+      const id = `${base}-${index}`;
+      const headingLevel = Number(level);
 
-    if (headingLevel >= 1) {
-      tocItems.push({
-        id,
-        text,
-        level: headingLevel,
-      });
-    }
+      if (headingLevel >= 1) {
+        tocItems.push({
+          id,
+          text,
+          level: headingLevel,
+        });
+      }
 
-    const attrsWithoutId = String(attrs).replace(/\sid\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, "");
-    return `<h${level}${attrsWithoutId} id="${id}" data-markdown-heading="true">${inner}<a class="mori-heading-anchor" href="#${id}" aria-label="章节链接">#</a></h${level}>`;
-  });
+      const attrsWithoutId = String(attrs).replace(/\sid\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, "");
+      return `<h${level}${attrsWithoutId} id="${id}" data-markdown-heading="true">${inner}<a class="mori-heading-anchor" href="#${id}" aria-label="章节链接">#</a></h${level}>`;
+    },
+  );
 
   return {
     html: htmlWithHeadingIds,

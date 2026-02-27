@@ -106,6 +106,7 @@ function CommentItem({
 
           <div
             className="mt-3 font-sans text-sm leading-[1.8] text-primary prose-comment"
+            suppressHydrationWarning
             dangerouslySetInnerHTML={{ __html: comment.html }}
           />
 
