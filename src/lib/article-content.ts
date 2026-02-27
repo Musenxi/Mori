@@ -110,6 +110,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       "class",
       "aria-hidden",
       "data-origin-src",
+      "data-mori-markdown-image",
     ],
     svg: ["class", "viewBox", "width", "height", "aria-hidden", "fill"],
     path: ["d", "fill", "fill-rule", "clip-rule"],
@@ -203,7 +204,12 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       const source = typeof attribs.src === "string" ? attribs.src.trim() : "";
       const className = typeof attribs.class === "string" ? attribs.class : "";
       const isOwo = /\bmori-owo\b/.test(className);
-      const optimizedSource = isOwo ? source : toNextImageProxySrc(source);
+      const markdownImageFlag =
+        typeof attribs["data-mori-markdown-image"] === "string"
+          ? attribs["data-mori-markdown-image"].trim()
+          : "";
+      const isMarkdownImage = markdownImageFlag === "1" || markdownImageFlag.toLowerCase() === "true";
+      const optimizedSource = isMarkdownImage && !isOwo ? toNextImageProxySrc(source) : "";
       const sanitizedAttribs = { ...attribs };
       delete sanitizedAttribs.srcset;
       delete sanitizedAttribs.sizes;

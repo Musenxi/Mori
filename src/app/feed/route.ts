@@ -11,6 +11,8 @@ import { NormalizedPost } from "@/lib/typecho-types";
 export const runtime = "nodejs";
 
 const FEED_LIMIT = 50;
+const FEED_IMAGE_PROXY_WIDTH = 1600;
+const FEED_IMAGE_PROXY_QUALITY = 85;
 
 function normalizeText(value: unknown, fallback: string) {
   if (typeof value !== "string") {
@@ -130,7 +132,7 @@ function unwrapNextImageUrl(value: string, origin: string) {
   }
 }
 
-function toCompressedImageUrl(value: string, origin: string) {
+function resolveFeedOriginalImageUrl(value: string, origin: string) {
   const original = unwrapNextImageUrl(value, origin);
   if (!original) {
     return "";
@@ -140,18 +142,40 @@ function toCompressedImageUrl(value: string, origin: string) {
     return original;
   }
 
-  const proxied = toNextImageProxySrc(original, { width: 1600, quality: 85 });
-  return toAbsoluteUrl(proxied, origin);
+  return toAbsoluteUrl(original, origin);
+}
+
+function resolveFeedProxyImageUrl(value: string, origin: string) {
+  const original = resolveFeedOriginalImageUrl(value, origin);
+  if (!original || original.startsWith("data:")) {
+    return original;
+  }
+
+  const proxied = toNextImageProxySrc(original, {
+    width: FEED_IMAGE_PROXY_WIDTH,
+    quality: FEED_IMAGE_PROXY_QUALITY,
+  });
+  return proxied || original;
+}
+
+function isTruthyAttrValue(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
 }
 
 function normalizeImgTag(tag: string, origin: string) {
   const originSrc = getTagAttr(tag, "data-origin-src");
   const currentSrc = getTagAttr(tag, "src");
   const targetSrc = originSrc || currentSrc;
+  const markdownImageFlag = getTagAttr(tag, "data-mori-markdown-image");
+  const isMarkdownImage = isTruthyAttrValue(markdownImageFlag);
 
   let normalized = tag;
   if (targetSrc) {
-    normalized = setTagAttr(normalized, "src", toCompressedImageUrl(targetSrc, origin));
+    const nextSrc = isMarkdownImage
+      ? resolveFeedProxyImageUrl(targetSrc, origin)
+      : resolveFeedOriginalImageUrl(targetSrc, origin);
+    normalized = setTagAttr(normalized, "src", nextSrc);
   }
 
   normalized = removeTagAttr(normalized, "srcset");
@@ -240,12 +264,13 @@ function resolveEnclosureMimeType(url: string) {
 function buildEnclosureXml(post: NormalizedPost, renderedContent: string, origin: string) {
   const cover = post.coverImage?.trim() || "";
   const firstImage = extractFirstImageFromHtml(renderedContent);
-  const rawUrl = cover || firstImage;
-  if (!rawUrl) {
+  if (!cover && !firstImage) {
     return "";
   }
 
-  const absoluteUrl = toCompressedImageUrl(rawUrl, origin);
+  const absoluteUrl = cover
+    ? resolveFeedProxyImageUrl(cover, origin)
+    : toAbsoluteUrl(firstImage, origin);
   if (!absoluteUrl || absoluteUrl.startsWith("data:")) {
     return "";
   }

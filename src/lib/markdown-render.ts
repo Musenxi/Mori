@@ -1739,6 +1739,30 @@ const markdownOptions: MarkdownToJSX.Options = {
         return `<p>${toHtml(output(node.content, state))}</p>`;
       },
     },
+    image: {
+      react(node) {
+        const target = String(node.target || "").trim();
+        const safeTarget = sanitizeUrl(target) || "";
+        if (!safeTarget) {
+          return "";
+        }
+
+        const alt = extractTextFromMarkdownNode(node.alt).trim();
+        const title = String(node.title || "").trim();
+        const attrs = [
+          `src="${escapeAttributeValue(safeTarget)}"`,
+          `alt="${escapeAttributeValue(alt)}"`,
+          `loading="lazy"`,
+          `decoding="async"`,
+          `data-mori-markdown-image="1"`,
+          title ? `title="${escapeAttributeValue(title)}"` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return `<img ${attrs}>`;
+      },
+    },
     codeFenced: {
       parse(capture) {
         return {

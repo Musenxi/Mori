@@ -12,6 +12,7 @@
     "@excalidraw/excalidraw": "0.18.0",
     "@next/env": "^16.1.6",
     "@shikijs/transformers": "3.2.2",
+    "blurhash": "^2.0.5",
     "katex": "^0.16.28",
     "markdown-to-jsx": "npm:@innei/markdown-to-jsx@7.2.1-beta.6",
     "motion": "^12.34.3",
@@ -21,6 +22,7 @@
     "react-dom": "19.2.3",
     "redis": "^5.11.0",
     "sanitize-html": "^2.17.0",
+    "sharp": "^0.34.5",
     "shiki": "3.2.2",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3"

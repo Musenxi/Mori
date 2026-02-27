@@ -1,5 +1,6 @@
 "use client";
 
+import { decode as decodeBlurhash } from "blurhash";
 import type { ComponentType } from "react";
 import { useEffect } from "react";
 import { createRoot, Root } from "react-dom/client";
@@ -28,6 +29,136 @@ const EXCALIDRAW_PORTAL_SELECTOR = ".excalidraw-modal-container";
 const excalidrawPortals = new Map<HTMLElement, HTMLElement>();
 let excalidrawActiveHost: HTMLElement | null = null;
 let excalidrawPortalObserver: MutationObserver | null = null;
+const DEFAULT_IMAGE_BLURHASH =
+  process.env.NEXT_PUBLIC_IMAGE_BLURHASH?.trim() || "LEHV6nWB2yk8pyo0adR*.7kCMdnj";
+let defaultBlurhashDataUrl = "";
+const blurhashDataUrlByHash = new Map<string, string>();
+const imagePlaceholderDataUrlBySource = new Map<string, string>();
+const imagePlaceholderPendingBySource = new Map<string, Promise<string>>();
+
+function decodeHashToDataUrl(hash: string) {
+  try {
+    const width = 32;
+    const height = 32;
+    const pixels = decodeBlurhash(hash, width, height);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return "";
+    }
+
+    const imageData = context.createImageData(width, height);
+    imageData.data.set(pixels);
+    context.putImageData(imageData, 0, 0);
+    return canvas.toDataURL("image/png");
+  } catch {
+    return "";
+  }
+}
+
+function getDefaultBlurhashDataUrl() {
+  if (defaultBlurhashDataUrl) {
+    return defaultBlurhashDataUrl;
+  }
+
+  defaultBlurhashDataUrl = decodeHashToDataUrl(DEFAULT_IMAGE_BLURHASH);
+  return defaultBlurhashDataUrl;
+}
+
+function normalizeImageSource(input: string) {
+  const source = input.trim();
+  if (!source || source.startsWith("data:") || source.startsWith("blob:") || source.startsWith("javascript:")) {
+    return "";
+  }
+
+  try {
+    const resolved = new URL(source, window.location.origin);
+    if (resolved.pathname === "/_next/image") {
+      const original = resolved.searchParams.get("url")?.trim() || "";
+      if (original) {
+        return new URL(original, window.location.origin).toString();
+      }
+    }
+
+    return resolved.toString();
+  } catch {
+    return "";
+  }
+}
+
+function parseBlurhashPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  const parsed = payload as { ok?: unknown; hash?: unknown };
+  if (!parsed.ok || typeof parsed.hash !== "string") {
+    return "";
+  }
+
+  return parsed.hash.trim();
+}
+
+async function resolvePerImagePlaceholderDataUrl(inputSource: string) {
+  const source = normalizeImageSource(inputSource);
+  if (!source) {
+    return "";
+  }
+
+  if (imagePlaceholderDataUrlBySource.has(source)) {
+    return imagePlaceholderDataUrlBySource.get(source) || "";
+  }
+
+  const pending = imagePlaceholderPendingBySource.get(source);
+  if (pending) {
+    return pending;
+  }
+
+  const job = (async () => {
+    try {
+      const response = await fetch(`/api/blurhash?src=${encodeURIComponent(source)}`, {
+        method: "GET",
+        cache: "force-cache",
+      });
+      if (!response.ok) {
+        return "";
+      }
+
+      const payload = (await response.json()) as unknown;
+      const hash = parseBlurhashPayload(payload);
+      if (!hash) {
+        return "";
+      }
+
+      const cachedDataUrl = blurhashDataUrlByHash.get(hash);
+      if (cachedDataUrl) {
+        return cachedDataUrl;
+      }
+
+      const dataUrl = decodeHashToDataUrl(hash);
+      if (!dataUrl) {
+        return "";
+      }
+
+      blurhashDataUrlByHash.set(hash, dataUrl);
+      return dataUrl;
+    } catch {
+      return "";
+    }
+  })()
+    .then((dataUrl) => {
+      imagePlaceholderDataUrlBySource.set(source, dataUrl);
+      return dataUrl;
+    })
+    .finally(() => {
+      imagePlaceholderPendingBySource.delete(source);
+    });
+
+  imagePlaceholderPendingBySource.set(source, job);
+  return job;
+}
 
 function decodeBase64Utf8(value: string) {
   try {
@@ -216,6 +347,7 @@ export function MarkdownRuntime() {
         return;
       }
 
+      const fallbackBlurhashDataUrl = getDefaultBlurhashDataUrl();
       const images = Array.from(document.querySelectorAll<HTMLImageElement>("img"));
       images.forEach((image) => {
         if (!image.getAttribute("loading")) {
@@ -223,6 +355,89 @@ export function MarkdownRuntime() {
         }
         if (!image.getAttribute("decoding")) {
           image.setAttribute("decoding", "async");
+        }
+
+        if (image.dataset.moriImageBlurhashBound !== "1") {
+          image.dataset.moriImageBlurhashBound = "1";
+
+          let cleaned = false;
+          const cleanupPlaceholder = () => {
+            if (cleaned) {
+              return;
+            }
+            cleaned = true;
+            image.removeEventListener("load", handleImageLoad);
+            image.removeEventListener("error", handleImageError);
+            image.style.removeProperty("background-image");
+            image.style.removeProperty("background-color");
+            image.style.removeProperty("background-size");
+            image.style.removeProperty("background-position");
+            image.style.removeProperty("background-repeat");
+            image.style.removeProperty("opacity");
+            image.style.removeProperty("transition");
+          };
+
+          const applyPlaceholder = (dataUrl: string) => {
+            image.style.backgroundColor = "var(--card, #e5e7eb)";
+            if (dataUrl) {
+              image.style.backgroundImage = `url("${dataUrl}")`;
+              image.style.backgroundSize = "cover";
+              image.style.backgroundPosition = "center";
+              image.style.backgroundRepeat = "no-repeat";
+            } else {
+              image.style.removeProperty("background-image");
+              image.style.removeProperty("background-size");
+              image.style.removeProperty("background-position");
+              image.style.removeProperty("background-repeat");
+            }
+            image.style.opacity = "0";
+            image.style.transition = "opacity 320ms ease";
+          };
+
+          const handleImageLoad = () => {
+            window.requestAnimationFrame(() => {
+              image.style.opacity = "1";
+              window.setTimeout(() => {
+                cleanupPlaceholder();
+              }, 240);
+            });
+          };
+
+          const handleImageError = () => {
+            const hasFallback = Boolean(image.getAttribute("data-origin-src")?.trim());
+            if (hasFallback) {
+              image.style.opacity = "0";
+              return;
+            }
+
+            image.style.opacity = "1";
+            cleanupPlaceholder();
+          };
+
+          image.addEventListener("load", handleImageLoad);
+          image.addEventListener("error", handleImageError);
+
+          if (!image.complete || image.naturalWidth === 0) {
+            applyPlaceholder(fallbackBlurhashDataUrl);
+
+            const source =
+              image.getAttribute("data-origin-src") ||
+              image.currentSrc ||
+              image.getAttribute("src") ||
+              "";
+            void resolvePerImagePlaceholderDataUrl(source).then((dataUrl) => {
+              if (cleaned || !dataUrl) {
+                return;
+              }
+              applyPlaceholder(dataUrl);
+            });
+          }
+
+          if (image.complete && image.naturalWidth > 0) {
+            handleImageLoad();
+          } else if (image.complete && image.naturalWidth === 0) {
+            handleImageError();
+          }
         }
 
         if (image.dataset.moriImageFallbackBound === "1") {
@@ -248,6 +463,21 @@ export function MarkdownRuntime() {
           }
 
           image.setAttribute("src", fallbackSrc);
+          if (image.dataset.moriImageBlurhashBound === "1") {
+            image.style.backgroundColor = "var(--card, #e5e7eb)";
+            image.style.opacity = "0";
+            image.style.transition = "opacity 320ms ease";
+            void resolvePerImagePlaceholderDataUrl(fallbackSrc).then((dataUrl) => {
+              if (!dataUrl) {
+                return;
+              }
+              image.style.backgroundImage = `url("${dataUrl}")`;
+              image.style.backgroundSize = "cover";
+              image.style.backgroundPosition = "center";
+              image.style.backgroundRepeat = "no-repeat";
+            });
+          }
+
           if (fallbackSrcSet) {
             image.setAttribute("srcset", fallbackSrcSet);
           } else {

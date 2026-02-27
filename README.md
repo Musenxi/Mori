@@ -43,6 +43,9 @@ TYPECHO_API_BASE_URL="https://your-typecho-site.com/api"
 TYPECHO_API_TOKEN="your-plugin-api-token"
 TYPECHO_REVALIDATE_SECONDS="90"
 GRAVATAR_PREFIX="https://gravatar.com/avatar/"
+NEXT_PUBLIC_IMAGE_BLURHASH="LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+BLURHASH_CACHE_TTL_SECONDS="604800"
+BLURHASH_FETCH_TIMEOUT_MS="8000"
 REDIS_URL="redis://127.0.0.1:6379"
 REDIS_KEY_PREFIX="mori"
 SOCKET_INTERNAL_TOKEN="replace-with-a-strong-random-string"
@@ -111,13 +114,15 @@ REDIS_KEY_PREFIX="mori"
 
 ## 图片优化策略
 
-- 文章正文中的图片（含 Markdown 图片、友链头像等）会被改写为 `/_next/image` 固定压缩 URL，默认参数为 `w=1600&q=85`。
+- 文章正文中仅 Markdown 语法生成的图片会被改写为 `/_next/image` 固定压缩 URL，默认参数为 `w=1600&q=85`（友链头像、卡片封面等非 Markdown 图片保持原链接）。
 - 全站图片已关闭大小自适应：不再输出 `srcset/sizes` 多宽度候选，仅保留单一压缩 `src`。
+- 图片加载时会按每张图的 URL 请求 `/api/blurhash` 生成专属 BlurHash 占位并淡入过渡（服务端生成后会缓存，避免重复计算）。
+- `NEXT_PUBLIC_IMAGE_BLURHASH` 仅作为兜底占位图（当单图 BlurHash 请求失败时使用）。
 - 文章头图使用固定压缩链接（`w=1600&q=85`），并按 LCP 场景配置为高优先加载（`loading=\"eager\" + fetchPriority=\"high\"`）。
 - 输出格式由 Next 按浏览器 `Accept` 自动协商：优先 `AVIF`，其次 `WebP`，最终回退原始编码格式。
 - 正文图片保留原始地址并在前端做失败回退：当 `/_next/image` 请求失败时会自动切回原图 URL。
 - `images.deviceSizes` 已包含：`640, 750, 828, 1080, 1200, 1600, 1920, 2048, 3840`。手动拼接 `/_next/image` 时，`w` 必须使用该集合中的值，否则会返回 `400`。
-- RSS `/feed` 中的正文图片与 `enclosure` 也统一使用固定压缩链接，并输出为绝对 URL（便于阅读器识别）。
+- RSS `/feed` 中仅“文章头图 + Markdown 语法图片”走 `/_next/image` 固定压缩链接（`w=1600&q=85`）；其余图片保持原图绝对链接。
 
 文章浏览/点赞统计：
 
