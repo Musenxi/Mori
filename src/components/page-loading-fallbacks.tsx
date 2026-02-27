@@ -102,8 +102,8 @@ export function ColumnDetailContentFallback() {
 
 export function StaticPageContentFallback() {
   return (
-    <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0">
-      <section className="mx-auto max-w-[850px] py-10 md:py-[100px]">
+    <main className="mx-auto w-full max-w-[1440px] px-5 pb-[20px] md:px-0">
+      <section className="mx-auto max-w-[850px] pt-10 pb-[20px] md:pt-[100px] md:pb-[20px]">
         <PulseBlock className="h-12 w-56" />
         <PulseBlock className="mt-8 h-px w-full rounded-none" />
         <div className="mt-8 space-y-4">
@@ -116,8 +116,8 @@ export function StaticPageContentFallback() {
 
 export function PostContentFallback() {
   return (
-    <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0">
-      <section className="flex flex-col gap-8 py-6 md:gap-10 md:py-[100px]">
+    <main className="mx-auto w-full max-w-[1440px] px-5 pb-[20px] md:px-0">
+      <section className="flex flex-col gap-8 pt-6 pb-[20px] md:gap-10 md:pt-[100px] md:pb-[20px]">
         <section className="mx-auto flex w-full max-w-[1104px] flex-col items-center gap-6 pt-10 md:pt-10">
           <PulseBlock className="h-12 w-3/4 max-w-[850px]" />
           <PulseBlock className="h-4 w-72" />

@@ -50,7 +50,7 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
 
   if (!configured) {
     return (
-      <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0" />
+      <main className="mx-auto w-full max-w-[1440px] px-5 pb-[20px] md:px-0" />
     );
   }
 
@@ -64,8 +64,8 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
   return (
     <>
       <ArticleContentDeferredStyles />
-      <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0">
-        <section className="flex flex-col gap-8 py-6 md:gap-10 md:py-[100px]">
+      <main className="mx-auto w-full max-w-[1440px] px-5 pb-[20px] md:px-0">
+        <section className="flex flex-col gap-8 pt-6 pb-[20px] md:gap-10 md:pt-[100px] md:pb-[20px]">
           <div className="mori-stagger-item">
             <PostHero
               post={detail.post}

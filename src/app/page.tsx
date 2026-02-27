@@ -22,7 +22,7 @@ async function HomePageContent() {
 
 export default async function HomePage() {
   return (
-    <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
+    <main className="mx-auto w-full max-w-[1440px] px-5 pb-[20px] md:px-0">
       <Suspense fallback={<HomeContentFallback />}>
         <HomePageContent />
       </Suspense>

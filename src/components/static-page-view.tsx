@@ -18,8 +18,8 @@ export function StaticPageContent({
   return (
     <>
       <ArticleContentDeferredStyles />
-      <main className="mx-auto w-full max-w-[1440px] px-5 pb-10 md:px-0">
-        <section className="mx-auto max-w-[850px] py-10 md:py-[100px]">
+      <main className="mx-auto w-full max-w-[1440px] px-5 pb-[20px] md:px-0">
+        <section className="mx-auto max-w-[850px] pt-10 pb-[20px] md:pt-[100px] md:pb-[20px]">
           <h1 className="mori-stagger-item mb-6 font-serif-cn text-[32px] leading-[1.4] tracking-[4px] text-primary md:text-[42px]">
             {page?.title || fallbackTitle}
           </h1>
@@ -53,4 +53,3 @@ export function StaticPageContent({
     </>
   );
 }
-

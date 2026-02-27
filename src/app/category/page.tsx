@@ -40,7 +40,7 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
 
   const context = await getSiteContext();
   return (
-    <main className="mx-auto w-full max-w-[1440px] px-5 pb-8 md:px-0">
+    <main className="mx-auto w-full max-w-[1440px] px-5 pb-[20px] md:px-0">
       <Suspense fallback={<CategoryContentFallback />}>
         <CategoryPageContent activeSlug={activeSlug} configured={context.configured} />
       </Suspense>
