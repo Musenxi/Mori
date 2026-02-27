@@ -16,6 +16,7 @@ interface PostHeroProps {
   readCount: string;
   likeCount: string;
   wordCount: number;
+  coverBlurDataUrl?: string;
 }
 
 interface CounterResponseEnvelope {
@@ -89,7 +90,7 @@ function MetaItem({
   );
 }
 
-export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProps) {
+export function PostHero({ post, readCount, likeCount, wordCount, coverBlurDataUrl }: PostHeroProps) {
   const fallbackCoverSrc = typeof post.coverImage === "string" ? post.coverImage.trim() : "";
 
   const [viewsNum, setViewsNum] = useState<number | null>(() => {
@@ -364,6 +365,8 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
             unoptimized
             loading="eager"
             fetchPriority="high"
+            placeholder={coverBlurDataUrl ? "blur" : "empty"}
+            blurDataURL={coverBlurDataUrl || undefined}
             className="h-[245px] w-full object-cover md:h-[460px]"
           />
         </figure>

@@ -99,7 +99,7 @@ function resolveMarkdownImageCaption(unitHtml: string) {
 
   const title = decodeHtmlEntity(readTagAttribute(imageTag, "title")).trim();
   const alt = decodeHtmlEntity(readTagAttribute(imageTag, "alt")).trim();
-  const src = decodeHtmlEntity(readTagAttribute(imageTag, "src")).trim();
+  const src = decodeHtmlEntity(readTagAttribute(imageTag, "data-origin-src") || readTagAttribute(imageTag, "src")).trim();
 
   return title || alt || resolveImageFileNameFromSrc(src);
 }
@@ -290,6 +290,9 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     a: ["href", "title", "target", "rel"],
     img: [
       "src",
+      "data-origin-src",
+      "data-origin-srcset",
+      "data-origin-sizes",
       "alt",
       "title",
       "width",

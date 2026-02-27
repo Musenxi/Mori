@@ -3,14 +3,15 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 
-import { encode } from "blurhash";
+import { decode, encode } from "blurhash";
 import sharp from "sharp";
 
-import { getRedisJson, setRedisJson } from "@/lib/redis-client";
+import { getRedisJson, setRedisJsonPersistent } from "@/lib/redis-client";
 
 const BLURHASH_COMPONENT_X = 4;
 const BLURHASH_COMPONENT_Y = 3;
 const BLURHASH_IMAGE_SIZE = 48;
+const BLURHASH_DATA_URL_SIZE = 32;
 const BLURHASH_CACHE_TTL_SECONDS = parsePositiveInt(
   process.env.BLURHASH_CACHE_TTL_SECONDS,
   60 * 60 * 24 * 7,
@@ -20,6 +21,7 @@ const BLURHASH_MAX_IMAGE_BYTES = parsePositiveInt(process.env.BLURHASH_MAX_IMAGE
 const MEMORY_CACHE_TTL_MS = BLURHASH_CACHE_TTL_SECONDS * 1000;
 
 const blurhashMemoryCache = new Map<string, { hash: string; expiresAt: number }>();
+const blurhashDataUrlMemoryCache = new Map<string, string>();
 
 function parsePositiveInt(raw: string | undefined, fallback: number) {
   if (typeof raw !== "string" || raw.trim() === "") {
@@ -198,6 +200,8 @@ export async function getBlurhashForImage(sourceUrl: string) {
   const cached = await getRedisJson<{ hash?: string }>(cacheKey);
   if (cached?.hash && cached.hash.trim()) {
     const hash = cached.hash.trim();
+    // Ensure existing TTL-based keys are gradually migrated to persistent keys.
+    await setRedisJsonPersistent(cacheKey, { hash });
     blurhashMemoryCache.set(cacheKey, {
       hash,
       expiresAt: now + MEMORY_CACHE_TTL_MS,
@@ -210,6 +214,46 @@ export async function getBlurhashForImage(sourceUrl: string) {
     hash,
     expiresAt: now + MEMORY_CACHE_TTL_MS,
   });
-  await setRedisJson(cacheKey, { hash }, BLURHASH_CACHE_TTL_SECONDS);
+  await setRedisJsonPersistent(cacheKey, { hash });
   return hash;
+}
+
+async function resolveBlurhashDataUrl(hash: string) {
+  const cached = blurhashDataUrlMemoryCache.get(hash);
+  if (cached) {
+    return cached;
+  }
+
+  const pixels = decode(hash, BLURHASH_DATA_URL_SIZE, BLURHASH_DATA_URL_SIZE);
+  const png = await sharp(Buffer.from(pixels), {
+    raw: {
+      width: BLURHASH_DATA_URL_SIZE,
+      height: BLURHASH_DATA_URL_SIZE,
+      channels: 4,
+    },
+  })
+    .png()
+    .toBuffer();
+
+  const dataUrl = `data:image/png;base64,${png.toString("base64")}`;
+  blurhashDataUrlMemoryCache.set(hash, dataUrl);
+  return dataUrl;
+}
+
+export async function getBlurhashDataUrlForSource(rawSource: string, origin: string) {
+  const sourceUrl = resolveBlurhashSourceUrl(rawSource, origin);
+  if (!sourceUrl) {
+    return "";
+  }
+
+  if (!validateBlurhashSourceUrl(sourceUrl, origin)) {
+    return "";
+  }
+
+  try {
+    const hash = await getBlurhashForImage(sourceUrl);
+    return await resolveBlurhashDataUrl(hash);
+  } catch {
+    return "";
+  }
 }

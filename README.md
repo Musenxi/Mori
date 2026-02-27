@@ -50,6 +50,8 @@ REDIS_KEY_PREFIX="mori"
 SOCKET_INTERNAL_TOKEN="replace-with-a-strong-random-string"
 ```
 
+说明：`BLURHASH_CACHE_TTL_SECONDS` 仅控制 Node 进程内存缓存时长；BlurHash 的 Redis 键默认持久化（不设置过期时间）。
+
 如果 Typecho 没开伪静态，请使用：
 
 ```bash

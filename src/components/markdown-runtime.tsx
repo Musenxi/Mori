@@ -35,6 +35,9 @@ let defaultBlurhashDataUrl = "";
 const blurhashDataUrlByHash = new Map<string, string>();
 const imagePlaceholderDataUrlBySource = new Map<string, string>();
 const imagePlaceholderPendingBySource = new Map<string, Promise<string>>();
+const BLURHASH_DATA_URL_STORAGE_PREFIX = "mori:blurhash:data-url:";
+const BLURHASH_PLACEHOLDER_OPACITY = "1";
+const DEFERRED_IMAGE_PRELOAD_ROOT_MARGIN = "100% 100% 100% 100%";
 const SINGLE_IMAGE_HEIGHT_SELECTOR = [
   '.prose-article > img[data-mori-markdown-image="1"]',
   '.prose-article > .mori-markdown-image-link > img[data-mori-markdown-image="1"]',
@@ -56,6 +59,12 @@ function isSingleHeightManagedMarkdownImage(image: HTMLImageElement) {
 
 function shouldUseAutoHeightForSingleImage(image: HTMLImageElement) {
   if (!isSingleHeightManagedMarkdownImage(image)) {
+    return false;
+  }
+
+  const deferredSrc = image.getAttribute("data-origin-src")?.trim() || "";
+  const currentSrc = image.getAttribute("src")?.trim() || "";
+  if (deferredSrc && currentSrc !== deferredSrc) {
     return false;
   }
 
@@ -125,6 +134,55 @@ function normalizeImageSource(input: string) {
   }
 }
 
+function readBlurhashDataUrlFromStorage(source: string) {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    const key = `${BLURHASH_DATA_URL_STORAGE_PREFIX}${encodeURIComponent(source)}`;
+    const dataUrl = window.localStorage.getItem(key) || "";
+    if (!dataUrl.startsWith("data:image/")) {
+      return "";
+    }
+    return dataUrl;
+  } catch {
+    return "";
+  }
+}
+
+function writeBlurhashDataUrlToStorage(source: string, dataUrl: string) {
+  if (typeof window === "undefined" || !dataUrl.startsWith("data:image/")) {
+    return;
+  }
+
+  try {
+    const key = `${BLURHASH_DATA_URL_STORAGE_PREFIX}${encodeURIComponent(source)}`;
+    window.localStorage.setItem(key, dataUrl);
+  } catch {
+    // Ignore storage quota / privacy mode errors.
+  }
+}
+
+function getCachedImagePlaceholderDataUrl(inputSource: string) {
+  const source = normalizeImageSource(inputSource);
+  if (!source) {
+    return "";
+  }
+
+  if (imagePlaceholderDataUrlBySource.has(source)) {
+    return imagePlaceholderDataUrlBySource.get(source) || "";
+  }
+
+  const cachedFromStorage = readBlurhashDataUrlFromStorage(source);
+  if (cachedFromStorage) {
+    imagePlaceholderDataUrlBySource.set(source, cachedFromStorage);
+    return cachedFromStorage;
+  }
+
+  return "";
+}
+
 function parseBlurhashPayload(payload: unknown) {
   if (!payload || typeof payload !== "object") {
     return "";
@@ -146,6 +204,12 @@ async function resolvePerImagePlaceholderDataUrl(inputSource: string) {
 
   if (imagePlaceholderDataUrlBySource.has(source)) {
     return imagePlaceholderDataUrlBySource.get(source) || "";
+  }
+
+  const cachedFromStorage = readBlurhashDataUrlFromStorage(source);
+  if (cachedFromStorage) {
+    imagePlaceholderDataUrlBySource.set(source, cachedFromStorage);
+    return cachedFromStorage;
   }
 
   const pending = imagePlaceholderPendingBySource.get(source);
@@ -187,6 +251,9 @@ async function resolvePerImagePlaceholderDataUrl(inputSource: string) {
   })()
     .then((dataUrl) => {
       imagePlaceholderDataUrlBySource.set(source, dataUrl);
+      if (dataUrl) {
+        writeBlurhashDataUrlToStorage(source, dataUrl);
+      }
       return dataUrl;
     })
     .finally(() => {
@@ -381,6 +448,52 @@ export function MarkdownRuntime() {
     let runtimeStarted = false;
     let startupTimer = 0;
     let pendingLoadListener: (() => void) | null = null;
+    const activateDeferredImageSource = (image: HTMLImageElement) => {
+      const deferredSrc = image.getAttribute("data-origin-src")?.trim();
+      if (!deferredSrc) {
+        return false;
+      }
+
+      const currentSrc = image.getAttribute("src")?.trim() || "";
+      if (currentSrc === deferredSrc) {
+        return true;
+      }
+
+      image.setAttribute("src", deferredSrc);
+
+      const deferredSrcSet = image.getAttribute("data-origin-srcset")?.trim();
+      if (deferredSrcSet) {
+        image.setAttribute("srcset", deferredSrcSet);
+      }
+
+      const deferredSizes = image.getAttribute("data-origin-sizes")?.trim();
+      if (deferredSizes) {
+        image.setAttribute("sizes", deferredSizes);
+      }
+
+      return true;
+    };
+    const deferredImageObserver =
+      typeof window !== "undefined" && "IntersectionObserver" in window
+        ? new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) {
+                return;
+              }
+
+              const image = entry.target as HTMLImageElement;
+              deferredImageObserver.unobserve(image);
+              activateDeferredImageSource(image);
+            });
+          },
+          {
+            root: null,
+            rootMargin: DEFERRED_IMAGE_PRELOAD_ROOT_MARGIN,
+            threshold: 0.01,
+          },
+        )
+        : null;
 
     const enhanceImages = () => {
       if (disposed) {
@@ -414,10 +527,33 @@ export function MarkdownRuntime() {
           image.setAttribute("decoding", "async");
         }
 
+        if (image.getAttribute("data-origin-src")?.trim()) {
+          const deferredCurrentSrc = image.getAttribute("src")?.trim() || "";
+          const deferredTargetSrc = image.getAttribute("data-origin-src")?.trim() || "";
+          const hasDeferredPending = deferredTargetSrc.length > 0 && deferredCurrentSrc !== deferredTargetSrc;
+
+          if (hasDeferredPending) {
+            if (deferredImageObserver) {
+              if (image.dataset.moriDeferredImageObserved !== "1") {
+                image.dataset.moriDeferredImageObserved = "1";
+                deferredImageObserver.observe(image);
+              }
+            } else {
+              activateDeferredImageSource(image);
+            }
+          }
+        }
+
         if (image.dataset.moriImageBlurhashBound !== "1") {
           image.dataset.moriImageBlurhashBound = "1";
 
           let cleaned = false;
+          const shouldUseBackgroundPlaceholder = !image.getAttribute("data-origin-src")?.trim();
+          const isWaitingForDeferredSource = () => {
+            const currentSrc = image.getAttribute("src")?.trim() || "";
+            const deferredSrc = image.getAttribute("data-origin-src")?.trim() || "";
+            return deferredSrc.length > 0 && currentSrc !== deferredSrc;
+          };
           const cleanupPlaceholder = () => {
             if (cleaned) {
               return;
@@ -435,7 +571,12 @@ export function MarkdownRuntime() {
           };
 
           const applyPlaceholder = (dataUrl: string) => {
-            image.style.backgroundColor = "var(--card, #e5e7eb)";
+            if (!shouldUseBackgroundPlaceholder) {
+              image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
+              image.style.transition = "opacity 320ms ease";
+              return;
+            }
+            image.style.removeProperty("background-color");
             if (dataUrl) {
               image.style.backgroundImage = `url("${dataUrl}")`;
               image.style.backgroundSize = "cover";
@@ -447,11 +588,14 @@ export function MarkdownRuntime() {
               image.style.removeProperty("background-position");
               image.style.removeProperty("background-repeat");
             }
-            image.style.opacity = "0";
+            image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
             image.style.transition = "opacity 320ms ease";
           };
 
           const handleImageLoad = () => {
+            if (isWaitingForDeferredSource()) {
+              return;
+            }
             window.requestAnimationFrame(() => {
               image.style.opacity = "1";
               window.setTimeout(() => {
@@ -463,7 +607,7 @@ export function MarkdownRuntime() {
           const handleImageError = () => {
             const hasFallback = Boolean(image.getAttribute("data-origin-src")?.trim());
             if (hasFallback) {
-              image.style.opacity = "0";
+              image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
               return;
             }
 
@@ -474,25 +618,29 @@ export function MarkdownRuntime() {
           image.addEventListener("load", handleImageLoad);
           image.addEventListener("error", handleImageError);
 
-          if (!image.complete || image.naturalWidth === 0) {
-            applyPlaceholder(fallbackBlurhashDataUrl);
-
+          if (shouldUseBackgroundPlaceholder && (isWaitingForDeferredSource() || !image.complete || image.naturalWidth === 0)) {
             const source =
               image.getAttribute("data-origin-src") ||
               image.currentSrc ||
               image.getAttribute("src") ||
               "";
-            void resolvePerImagePlaceholderDataUrl(source).then((dataUrl) => {
-              if (cleaned || !dataUrl) {
-                return;
-              }
-              applyPlaceholder(dataUrl);
-            });
+            const cachedDataUrl = getCachedImagePlaceholderDataUrl(source);
+            if (cachedDataUrl) {
+              applyPlaceholder(cachedDataUrl);
+            } else {
+              applyPlaceholder(fallbackBlurhashDataUrl);
+              void resolvePerImagePlaceholderDataUrl(source).then((dataUrl) => {
+                if (cleaned || !dataUrl) {
+                  return;
+                }
+                applyPlaceholder(dataUrl);
+              });
+            }
           }
 
-          if (image.complete && image.naturalWidth > 0) {
+          if (!isWaitingForDeferredSource() && image.complete && image.naturalWidth > 0) {
             handleImageLoad();
-          } else if (image.complete && image.naturalWidth === 0) {
+          } else if (!isWaitingForDeferredSource() && image.complete && image.naturalWidth === 0) {
             handleImageError();
           }
         }
@@ -520,9 +668,9 @@ export function MarkdownRuntime() {
           }
 
           image.setAttribute("src", fallbackSrc);
-          if (image.dataset.moriImageBlurhashBound === "1") {
-            image.style.backgroundColor = "var(--card, #e5e7eb)";
-            image.style.opacity = "0";
+          if (image.dataset.moriImageBlurhashBound === "1" && shouldUseBackgroundPlaceholder) {
+            image.style.removeProperty("background-color");
+            image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
             image.style.transition = "opacity 320ms ease";
             void resolvePerImagePlaceholderDataUrl(fallbackSrc).then((dataUrl) => {
               if (!dataUrl) {
@@ -961,6 +1109,7 @@ export function MarkdownRuntime() {
         window.removeEventListener("load", pendingLoadListener);
         pendingLoadListener = null;
       }
+      deferredImageObserver?.disconnect();
       observer.disconnect();
       excalidrawRoots.forEach((root) => {
         scheduleRootUnmount(root);

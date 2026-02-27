@@ -120,6 +120,10 @@ function escapeAttributeValue(value: string) {
     .replace(/>/g, "&gt;");
 }
 
+function buildDeferredMarkdownImagePlaceholderSrc(target: string) {
+  return `/api/blurhash/image?src=${encodeURIComponent(target)}`;
+}
+
 function escapeHtmlText(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -1741,7 +1745,8 @@ const markdownOptions: MarkdownToJSX.Options = {
 
         const title = String(definition?.title || "").trim();
         const attrs = [
-          `src="${escapeAttributeValue(safeTarget)}"`,
+          `src="${escapeAttributeValue(buildDeferredMarkdownImagePlaceholderSrc(safeTarget))}"`,
+          `data-origin-src="${escapeAttributeValue(safeTarget)}"`,
           `alt="${escapeAttributeValue(alt)}"`,
           `loading="lazy"`,
           `decoding="async"`,
@@ -1808,7 +1813,8 @@ const markdownOptions: MarkdownToJSX.Options = {
         const alt = extractTextFromMarkdownNode(node.alt).trim();
         const title = String(node.title || "").trim();
         const attrs = [
-          `src="${escapeAttributeValue(safeTarget)}"`,
+          `src="${escapeAttributeValue(buildDeferredMarkdownImagePlaceholderSrc(safeTarget))}"`,
+          `data-origin-src="${escapeAttributeValue(safeTarget)}"`,
           `alt="${escapeAttributeValue(alt)}"`,
           `loading="lazy"`,
           `decoding="async"`,

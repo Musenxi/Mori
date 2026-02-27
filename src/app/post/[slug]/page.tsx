@@ -16,6 +16,7 @@ import { PostNavigation } from "@/components/article/post-navigation";
 import { CommentSection } from "@/components/article/comment-section";
 import { SidePostNavigation } from "@/components/article/side-post-navigation";
 import { TocActions } from "@/components/article/toc-actions";
+import { getBlurhashDataUrlForSource } from "@/lib/blurhash-placeholder";
 
 export const revalidate = 60;
 
@@ -23,6 +24,28 @@ interface PostPageProps {
   params: Promise<{
     slug: string;
   }>;
+}
+
+function resolvePostOrigin(permalink?: string) {
+  const rawPermalink = typeof permalink === "string" ? permalink.trim() : "";
+  if (rawPermalink) {
+    try {
+      return new URL(rawPermalink).origin;
+    } catch {
+      // Fall back below.
+    }
+  }
+
+  const fallbackOrigin =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    process.env.SITE_URL?.trim() ||
+    "http://127.0.0.1:3000";
+
+  try {
+    return new URL(fallbackOrigin).origin;
+  } catch {
+    return "http://127.0.0.1:3000";
+  }
 }
 
 export async function generateStaticParams() {
@@ -58,6 +81,10 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
   if (!detail) {
     notFound();
   }
+  const coverBlurDataUrl = await getBlurhashDataUrlForSource(
+    detail.post.coverImage?.trim() || "",
+    resolvePostOrigin(detail.post.permalink),
+  );
 
   const tocItems = detail.tocItems;
 
@@ -72,6 +99,7 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
               readCount={detail.readCount}
               likeCount={detail.likeCount}
               wordCount={detail.wordCount}
+              coverBlurDataUrl={coverBlurDataUrl}
             />
           </div>
 

@@ -185,3 +185,19 @@ export async function setRedisJson(
     handleRedisOperationError(error);
   }
 }
+
+export async function setRedisJsonPersistent(
+  key: string,
+  value: unknown,
+) {
+  const client = await getRedisClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    await client.set(makePrefixedKey(key), JSON.stringify(value));
+  } catch (error) {
+    handleRedisOperationError(error);
+  }
+}

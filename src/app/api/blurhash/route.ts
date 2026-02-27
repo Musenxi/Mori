@@ -24,7 +24,7 @@ function toJson(data: unknown, status = 200) {
   return NextResponse.json(data, {
     status,
     headers: {
-      "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+      "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
     },
   });
 }
