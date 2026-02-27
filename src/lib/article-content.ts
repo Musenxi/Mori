@@ -26,6 +26,7 @@ async function markdownToSafeHtml(rawContent: string | undefined) {
 
 const MARKDOWN_IMAGE_UNIT_PATTERN =
   /<p>\s*(?:<a\b[^>]*\bmori-markdown-image-link\b[^>]*>\s*<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>\s*<\/a>|<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>)\s*<\/p>|<a\b[^>]*\bmori-markdown-image-link\b[^>]*>\s*<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>\s*<\/a>|<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>/gi;
+const MARKDOWN_IMAGE_TAG_IN_UNIT_PATTERN = /<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>/i;
 
 type MarkdownImageUnit = {
   html: string;
@@ -38,6 +39,79 @@ function normalizeMarkdownImageUnitHtml(unitHtml: string) {
   return paragraphMatch ? paragraphMatch[1] : unitHtml;
 }
 
+function decodeHtmlEntity(value: string) {
+  return value
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+function escapeHtmlText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function readTagAttribute(tag: string, name: string) {
+  const pattern = new RegExp(`${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i");
+  const matched = tag.match(pattern);
+  if (!matched) {
+    return "";
+  }
+  return matched[1] ?? matched[2] ?? matched[3] ?? "";
+}
+
+function safeDecodeURIComponent(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function resolveImageFileNameFromSrc(src: string) {
+  if (!src) {
+    return "";
+  }
+
+  let path = src;
+  try {
+    const parsed = new URL(src, "https://mori.local");
+    path = parsed.pathname || src;
+  } catch {
+    path = src.split(/[?#]/, 1)[0] || src;
+  }
+
+  const baseName = path.split("/").filter(Boolean).pop() || "";
+  return safeDecodeURIComponent(baseName);
+}
+
+function resolveMarkdownImageCaption(unitHtml: string) {
+  const imageTag = unitHtml.match(MARKDOWN_IMAGE_TAG_IN_UNIT_PATTERN)?.[0] || "";
+  if (!imageTag) {
+    return "";
+  }
+
+  const title = decodeHtmlEntity(readTagAttribute(imageTag, "title")).trim();
+  const alt = decodeHtmlEntity(readTagAttribute(imageTag, "alt")).trim();
+  const src = decodeHtmlEntity(readTagAttribute(imageTag, "src")).trim();
+
+  return title || alt || resolveImageFileNameFromSrc(src);
+}
+
+function buildMarkdownImageSingle(unit: MarkdownImageUnit) {
+  const normalized = normalizeMarkdownImageUnitHtml(unit.html);
+  const caption = resolveMarkdownImageCaption(normalized);
+  const captionHtml = caption ? `<figcaption class="mori-image-caption">${escapeHtmlText(caption)}</figcaption>` : "";
+
+  return `<figure class="mori-image-single">${normalized}${captionHtml}</figure>`;
+}
+
 function buildMarkdownImageGallery(units: MarkdownImageUnit[]) {
   const count = units.length;
   if (count < 2) {
@@ -46,7 +120,12 @@ function buildMarkdownImageGallery(units: MarkdownImageUnit[]) {
 
   const layoutClass = count === 2 ? "is-dual" : "is-carousel";
   const items = units
-    .map((unit) => `<figure class="mori-image-gallery-item">${normalizeMarkdownImageUnitHtml(unit.html)}</figure>`)
+    .map((unit) => {
+      const normalized = normalizeMarkdownImageUnitHtml(unit.html);
+      const caption = resolveMarkdownImageCaption(normalized);
+      const captionHtml = caption ? `<figcaption class="mori-image-caption">${escapeHtmlText(caption)}</figcaption>` : "";
+      return `<figure class="mori-image-gallery-item">${normalized}${captionHtml}</figure>`;
+    })
     .join("");
 
   return `<div class="mori-image-gallery ${layoutClass}" data-image-count="${count}">${items}</div>`;
@@ -74,7 +153,7 @@ function applyMarkdownImageGalleryLayout(html: string) {
     match = MARKDOWN_IMAGE_UNIT_PATTERN.exec(html);
   }
 
-  if (units.length < 2) {
+  if (units.length === 0) {
     return html;
   }
 
@@ -82,17 +161,20 @@ function applyMarkdownImageGalleryLayout(html: string) {
   let activeGroup: MarkdownImageUnit[] = [];
 
   const flushActiveGroup = () => {
-    if (activeGroup.length < 2) {
+    if (activeGroup.length === 0) {
       activeGroup = [];
       return;
     }
 
     const first = activeGroup[0];
     const last = activeGroup[activeGroup.length - 1];
+    const replacementHtml =
+      activeGroup.length === 1 ? buildMarkdownImageSingle(activeGroup[0]) : buildMarkdownImageGallery(activeGroup);
+
     replacements.push({
       start: first.start,
       end: last.end,
-      html: buildMarkdownImageGallery(activeGroup),
+      html: replacementHtml,
     });
     activeGroup = [];
   };
