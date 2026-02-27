@@ -63,6 +63,13 @@ function escapeHtmlAttribute(value: string) {
     .replace(/>/g, "&gt;");
 }
 
+function encodeUrlPathSegments(pathValue: string) {
+  return pathValue
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
 function decodeHexLabel(input: string) {
   const normalized = input.trim();
   if (normalized.length < 4 || normalized.length % 2 !== 0 || !/^(?:[0-9a-f]{2})+$/i.test(normalized)) {
@@ -192,7 +199,16 @@ export function buildOwoAssetResolverPath(groupRaw: string, nameRaw: string) {
   if (!group || !name) {
     return "";
   }
-  return `/api/owo/asset/${group}/${name}`;
+  return `/api/owo/asset/${encodeURIComponent(group)}/${encodeURIComponent(name)}`;
+}
+
+export function toOwoPublicSrc(rawPath: string) {
+  const normalized = normalizeOwoAssetPath(rawPath);
+  if (!normalized) {
+    return "";
+  }
+
+  return `/owo/${encodeUrlPathSegments(normalized)}`;
 }
 
 export function getOwoAssetCandidates(groupRaw: string, nameRaw: string) {

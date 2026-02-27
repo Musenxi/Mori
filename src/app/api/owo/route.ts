@@ -8,6 +8,7 @@ import {
   getOwoTokenName,
   normalizeOwoAssetPath,
   pickPreferredOwoFiles,
+  toOwoPublicSrc,
 } from "@/lib/owo";
 import type { OwoCatalogGroup, OwoCatalogItem } from "@/lib/owo";
 
@@ -58,9 +59,14 @@ async function loadGroupItems(groupId: string): Promise<OwoCatalogItem[]> {
         return null;
       }
 
+      const src = toOwoPublicSrc(normalizedPath);
+      if (!src) {
+        return null;
+      }
+
       return {
         path: normalizedPath,
-        src: `/owo/${normalizedPath}`,
+        src,
         label: getOwoDisplayName(fileName),
         token,
       } satisfies OwoCatalogItem;
