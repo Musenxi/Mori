@@ -341,6 +341,9 @@ export function MarkdownRuntime() {
     const excalidrawHostCleanups = new Map<HTMLElement, () => void>();
     const pendingRootUnmounts = new Set<Root>();
     let disposed = false;
+    let runtimeStarted = false;
+    let startupTimer = 0;
+    let pendingLoadListener: (() => void) | null = null;
 
     const enhanceImages = () => {
       if (disposed) {
@@ -348,8 +351,14 @@ export function MarkdownRuntime() {
       }
 
       const fallbackBlurhashDataUrl = getDefaultBlurhashDataUrl();
-      const images = Array.from(document.querySelectorAll<HTMLImageElement>("img"));
+      const images = Array.from(
+        document.querySelectorAll<HTMLImageElement>('img[data-mori-markdown-image="1"], img[data-origin-src]'),
+      );
       images.forEach((image) => {
+        if (image.hasAttribute("data-nimg")) {
+          return;
+        }
+
         if (!image.getAttribute("loading")) {
           image.setAttribute("loading", "lazy");
         }
@@ -637,13 +646,36 @@ export function MarkdownRuntime() {
       enhanceImages();
     });
 
-    mountAllExcalidraw();
-    shuffleFriendLinks();
-    enhanceImages();
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    const startRuntime = () => {
+      if (disposed || runtimeStarted) {
+        return;
+      }
+      runtimeStarted = true;
+      mountAllExcalidraw();
+      shuffleFriendLinks();
+      enhanceImages();
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    };
+
+    const scheduleRuntimeStart = () => {
+      startupTimer = window.setTimeout(() => {
+        startRuntime();
+      }, 0);
+    };
+
+    if (document.readyState === "complete") {
+      scheduleRuntimeStart();
+    } else {
+      const onLoad = () => {
+        pendingLoadListener = null;
+        scheduleRuntimeStart();
+      };
+      pendingLoadListener = onLoad;
+      window.addEventListener("load", onLoad, { once: true });
+    }
 
     if (!excalidrawPortalObserver) {
       excalidrawPortalObserver = new MutationObserver(() => {
@@ -876,6 +908,11 @@ export function MarkdownRuntime() {
 
     return () => {
       disposed = true;
+      window.clearTimeout(startupTimer);
+      if (pendingLoadListener) {
+        window.removeEventListener("load", pendingLoadListener);
+        pendingLoadListener = null;
+      }
       observer.disconnect();
       excalidrawRoots.forEach((root) => {
         scheduleRootUnmount(root);

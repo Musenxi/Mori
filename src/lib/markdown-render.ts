@@ -88,6 +88,16 @@ let activeReferenceLinkDefinitions = new Map<string, ReferenceLinkDefinition>();
 const DOC_HEAD_GUARD_ID = "73b9050e";
 const DOC_HEAD_GUARD_HTML = `<div data-mori-doc-guard="${DOC_HEAD_GUARD_ID}"></div>`;
 
+function withMarkdownRenderScope<T>(runner: () => T) {
+  const previousTabsInstanceCount = tabsInstanceCount;
+  tabsInstanceCount = 0;
+  try {
+    return runner();
+  } finally {
+    tabsInstanceCount = previousTabsInstanceCount;
+  }
+}
+
 function toHtml(value: unknown): string {
   if (Array.isArray(value)) {
     return value.map((item) => toHtml(item)).join("");
@@ -1813,25 +1823,27 @@ export function renderSimpleMarkdownToHtml(rawMarkdown: string) {
     return "";
   }
 
-  const preprocessed = preprocessFriendLinks(source);
-  const compileSource = `${DOC_HEAD_GUARD_HTML}\n\n${preprocessed}`;
+  return withMarkdownRenderScope(() => {
+    const preprocessed = preprocessFriendLinks(source);
+    const compileSource = `${DOC_HEAD_GUARD_HTML}\n\n${preprocessed}`;
 
-  const previousReferenceLinkDefinitions = activeReferenceLinkDefinitions;
-  activeReferenceLinkDefinitions = parseReferenceLinkDefinitions(preprocessed);
+    const previousReferenceLinkDefinitions = activeReferenceLinkDefinitions;
+    activeReferenceLinkDefinitions = parseReferenceLinkDefinitions(preprocessed);
 
-  let rawHtml = "";
-  try {
-    rawHtml = toHtml(compiler(compileSource, markdownOptions));
-  } finally {
-    activeReferenceLinkDefinitions = previousReferenceLinkDefinitions;
-  }
+    let rawHtml = "";
+    try {
+      rawHtml = toHtml(compiler(compileSource, markdownOptions));
+    } finally {
+      activeReferenceLinkDefinitions = previousReferenceLinkDefinitions;
+    }
 
-  rawHtml = rawHtml.replace(
-    new RegExp(`^<div data-mori-doc-guard="${DOC_HEAD_GUARD_ID}"><\\/div>`),
-    "",
-  );
+    rawHtml = rawHtml.replace(
+      new RegExp(`^<div data-mori-doc-guard="${DOC_HEAD_GUARD_ID}"><\\/div>`),
+      "",
+    );
 
-  return rawHtml;
+    return rawHtml;
+  });
 }
 
 export async function renderMarkdownToHtml(rawMarkdown: string) {
@@ -1840,28 +1852,30 @@ export async function renderMarkdownToHtml(rawMarkdown: string) {
     return "";
   }
 
-  // Pre-process friend links before markdown compilation
-  const preprocessed = preprocessFriendLinks(source);
+  const rawHtml = withMarkdownRenderScope(() => {
+    // Pre-process friend links before markdown compilation
+    const preprocessed = preprocessFriendLinks(source);
 
-  // @innei/markdown-to-jsx has a block-parsing edge case at document start
-  // (the first list/hr block may not be recognized). We prepend a guard node
-  // and remove only that exact leading node after compile.
-  const compileSource = `${DOC_HEAD_GUARD_HTML}\n\n${preprocessed}`;
+    // @innei/markdown-to-jsx has a block-parsing edge case at document start
+    // (the first list/hr block may not be recognized). We prepend a guard node
+    // and remove only that exact leading node after compile.
+    const compileSource = `${DOC_HEAD_GUARD_HTML}\n\n${preprocessed}`;
 
-  const previousReferenceLinkDefinitions = activeReferenceLinkDefinitions;
-  activeReferenceLinkDefinitions = parseReferenceLinkDefinitions(preprocessed);
+    const previousReferenceLinkDefinitions = activeReferenceLinkDefinitions;
+    activeReferenceLinkDefinitions = parseReferenceLinkDefinitions(preprocessed);
 
-  let rawHtml = "";
-  try {
-    rawHtml = toHtml(compiler(compileSource, markdownOptions));
-  } finally {
-    activeReferenceLinkDefinitions = previousReferenceLinkDefinitions;
-  }
+    let nextHtml = "";
+    try {
+      nextHtml = toHtml(compiler(compileSource, markdownOptions));
+    } finally {
+      activeReferenceLinkDefinitions = previousReferenceLinkDefinitions;
+    }
 
-  rawHtml = rawHtml.replace(
-    new RegExp(`^<div data-mori-doc-guard="${DOC_HEAD_GUARD_ID}"><\\/div>`),
-    "",
-  );
+    return nextHtml.replace(
+      new RegExp(`^<div data-mori-doc-guard="${DOC_HEAD_GUARD_ID}"><\\/div>`),
+      "",
+    );
+  });
 
   const highlightedHtml = await applyShikiHighlight(rawHtml);
   const withRichLinks = await applyRichLinkPreview(highlightedHtml);

@@ -453,12 +453,15 @@
 
 .prose-article .mori-inline-link::after,
 .prose-article a:not(.mori-inline-link):not(.mori-link-card-grid):not(.mori-heading-anchor):not(.mori-footnote-link):not(.mori-mention):not(.mori-footnote-backref):not(.mori-friend-card)::after {
-  content: "↗";
+  content: "\2197\FE0E";
   display: inline-block;
-  margin-left: 2px;
-  font-size: 0.62em;
+  margin-left: 3px;
+  font-size: 1.2em;
+  font-family: "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols 2", sans-serif;
+  font-weight: 400;
+  font-style: normal;
   opacity: 0.7;
-  transform: translate(-1px, 0);
+  transform: translate(-1px, -2px);
 }
 
 .prose-article .mori-link-text {
@@ -469,9 +472,12 @@
 
 .prose-article .mori-link-arrow {
   flex: 0 0 auto;
-  font-size: 0.62em;
+  font-size: 1.2em;
+  font-family: "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols 2", sans-serif;
+  font-weight: 400;
+  font-style: normal;
   opacity: 0.7;
-  transform: translate(-1px, 0);
+  transform: translate(-1px, -2px);
   transition: none;
 }
 
