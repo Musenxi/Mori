@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "../fonts/STD/regular/font.css";
+@import "../fonts/STD/bold/font.css";
 
 @property --bg {
   syntax: "<color>";
@@ -64,7 +66,7 @@
   --tag: #9a9a9a1a;
   --hover: #f5f3f0;
   --card: #ffffff;
-  --font-noto-serif-sc: "Songti SC", "STSong", "Noto Serif CJK SC", serif;
+  --font-noto-serif-sc: "STDongGuanTi", "Songti SC", "STSong", "Noto Serif CJK SC", serif;
 }
 
 .dark {
