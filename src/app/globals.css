@@ -271,6 +271,12 @@ html.mori-footer-deferred .mori-site-footer {
   animation: mori-stagger-rise 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
+html.mori-post-to-post-switch .mori-post-rail-stagger {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     transition-duration: 0.01ms;

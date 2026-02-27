@@ -34,6 +34,14 @@ export function ViewTransitionProvider() {
     document.documentElement.classList.remove("mori-footer-deferred");
   }, []);
 
+  const clearPostToPostSwitchState = useCallback(() => {
+    document.documentElement.classList.remove("mori-post-to-post-switch");
+  }, []);
+
+  const markPostToPostSwitch = useCallback(() => {
+    document.documentElement.classList.add("mori-post-to-post-switch");
+  }, []);
+
   const hideFooterForRouteSwitch = useCallback(() => {
     if (footerRevealTimerRef.current != null) {
       window.clearTimeout(footerRevealTimerRef.current);
@@ -124,8 +132,9 @@ export function ViewTransitionProvider() {
       completePendingNavigation();
       clearRouteLayoutLock();
       clearFooterDeferredState();
+      clearPostToPostSwitchState();
     },
-    [clearFooterDeferredState, clearRouteLayoutLock, completePendingNavigation],
+    [clearFooterDeferredState, clearPostToPostSwitchState, clearRouteLayoutLock, completePendingNavigation],
   );
 
   useEffect(() => {
@@ -188,6 +197,11 @@ export function ViewTransitionProvider() {
         window.location.pathname.startsWith("/post/")
         && nextUrl.pathname.startsWith("/post/")
         && nextUrl.pathname !== window.location.pathname;
+      if (isPostToPost) {
+        markPostToPostSwitch();
+      } else {
+        clearPostToPostSwitchState();
+      }
 
       if (!doc.startViewTransition || reducedMotion) {
         lockCurrentRouteLayoutHeight();
@@ -219,7 +233,7 @@ export function ViewTransitionProvider() {
     return () => {
       document.removeEventListener("click", onClick, true);
     };
-  }, [router, completePendingNavigation, lockCurrentRouteLayoutHeight]);
+  }, [router, clearPostToPostSwitchState, completePendingNavigation, lockCurrentRouteLayoutHeight, markPostToPostSwitch]);
 
   return null;
 }
