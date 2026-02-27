@@ -37,6 +37,8 @@ const imagePlaceholderDataUrlBySource = new Map<string, string>();
 const imagePlaceholderPendingBySource = new Map<string, Promise<string>>();
 const BLURHASH_DATA_URL_STORAGE_PREFIX = "mori:blurhash:data-url:";
 const BLURHASH_PLACEHOLDER_OPACITY = "1";
+const IMAGE_FADE_DURATION_MS = 680;
+const DEFERRED_IMAGE_FADE_START_OPACITY = "0.55";
 const DEFERRED_IMAGE_PRELOAD_ROOT_MARGIN = "100% 100% 100% 100%";
 const SINGLE_IMAGE_HEIGHT_SELECTOR = [
   '.prose-article > img[data-mori-markdown-image="1"]',
@@ -459,6 +461,8 @@ export function MarkdownRuntime() {
         return true;
       }
 
+      image.style.transition = `opacity ${IMAGE_FADE_DURATION_MS}ms ease`;
+      image.style.opacity = DEFERRED_IMAGE_FADE_START_OPACITY;
       image.setAttribute("src", deferredSrc);
 
       const deferredSrcSet = image.getAttribute("data-origin-srcset")?.trim();
@@ -483,7 +487,7 @@ export function MarkdownRuntime() {
               }
 
               const image = entry.target as HTMLImageElement;
-              deferredImageObserver.unobserve(image);
+              deferredImageObserver?.unobserve(image);
               activateDeferredImageSource(image);
             });
           },
@@ -573,7 +577,7 @@ export function MarkdownRuntime() {
           const applyPlaceholder = (dataUrl: string) => {
             if (!shouldUseBackgroundPlaceholder) {
               image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
-              image.style.transition = "opacity 320ms ease";
+              image.style.transition = `opacity ${IMAGE_FADE_DURATION_MS}ms ease`;
               return;
             }
             image.style.removeProperty("background-color");
@@ -589,7 +593,7 @@ export function MarkdownRuntime() {
               image.style.removeProperty("background-repeat");
             }
             image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
-            image.style.transition = "opacity 320ms ease";
+            image.style.transition = `opacity ${IMAGE_FADE_DURATION_MS}ms ease`;
           };
 
           const handleImageLoad = () => {
@@ -600,7 +604,7 @@ export function MarkdownRuntime() {
               image.style.opacity = "1";
               window.setTimeout(() => {
                 cleanupPlaceholder();
-              }, 240);
+              }, IMAGE_FADE_DURATION_MS);
             });
           };
 
@@ -667,11 +671,12 @@ export function MarkdownRuntime() {
             return false;
           }
 
+          const shouldUseFallbackBackgroundPlaceholder = !image.getAttribute("data-origin-src")?.trim();
           image.setAttribute("src", fallbackSrc);
-          if (image.dataset.moriImageBlurhashBound === "1" && shouldUseBackgroundPlaceholder) {
+          if (image.dataset.moriImageBlurhashBound === "1" && shouldUseFallbackBackgroundPlaceholder) {
             image.style.removeProperty("background-color");
             image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
-            image.style.transition = "opacity 320ms ease";
+            image.style.transition = `opacity ${IMAGE_FADE_DURATION_MS}ms ease`;
             void resolvePerImagePlaceholderDataUrl(fallbackSrc).then((dataUrl) => {
               if (!dataUrl) {
                 return;

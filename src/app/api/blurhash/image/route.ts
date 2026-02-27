@@ -23,7 +23,10 @@ function resolveOrigin(request: NextRequest) {
 }
 
 function toPng(pngBuffer: Buffer) {
-  return new NextResponse(pngBuffer, {
+  const body = new Uint8Array(pngBuffer.byteLength);
+  body.set(pngBuffer);
+
+  return new NextResponse(body, {
     status: 200,
     headers: {
       "Content-Type": "image/png",
