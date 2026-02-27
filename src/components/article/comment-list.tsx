@@ -68,6 +68,7 @@ function CommentItem({
               alt={`${comment.author} 的头像`}
               className="h-full w-full rounded-[10px] object-cover"
               loading="lazy"
+              decoding="async"
               referrerPolicy="no-referrer"
               onError={() => setAvatarFailed(true)}
             />
