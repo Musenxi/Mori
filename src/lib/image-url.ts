@@ -34,30 +34,62 @@ function normalizeProxyTarget(source: string) {
   return source;
 }
 
-export function toNextImageProxySrc(input?: string | null, options?: { width?: number; quality?: number }) {
+function resolveProxyTarget(input?: string | null) {
   const source = normalizeImageSrc(input);
   if (!source) {
     return "";
   }
   if (NON_OPTIMIZABLE_SCHEME_REGEX.test(source)) {
-    return source;
+    return "";
   }
-
   if (source.startsWith(`${NEXT_IMAGE_API_PATH}?`)) {
-    return source;
+    return "";
   }
 
   const target = normalizeProxyTarget(source);
   if (!ABSOLUTE_HTTP_URL_REGEX.test(target) && !ROOT_RELATIVE_URL_REGEX.test(target)) {
-    return source;
+    return "";
   }
 
-  const width = normalizeNextWidth(options?.width ?? 1600);
-  const quality = clampInteger(options?.quality ?? 75, 1, 100);
+  return target;
+}
+
+function buildNextProxyUrl(target: string, width: number, quality: number) {
   const params = new URLSearchParams({
     url: target,
     w: String(width),
     q: String(quality),
   });
   return `${NEXT_IMAGE_API_PATH}?${params.toString()}`;
+}
+
+export function toNextImageProxySrc(input?: string | null, options?: { width?: number; quality?: number }) {
+  const source = normalizeImageSrc(input);
+  if (!source) {
+    return "";
+  }
+  const target = resolveProxyTarget(source);
+  if (!target) {
+    return source;
+  }
+
+  const width = normalizeNextWidth(options?.width ?? 1600);
+  const quality = clampInteger(options?.quality ?? 75, 1, 100);
+  return buildNextProxyUrl(target, width, quality);
+}
+
+export function toNextImageProxySrcSet(input?: string | null, options?: { maxWidth?: number; quality?: number }) {
+  const target = resolveProxyTarget(input);
+  if (!target) {
+    return "";
+  }
+
+  const quality = clampInteger(options?.quality ?? 75, 1, 100);
+  const maxWidth = normalizeNextWidth(options?.maxWidth ?? 1600);
+  const widths = NEXT_ALLOWED_WIDTHS.filter((width) => width <= maxWidth);
+  const candidates = widths.length > 0 ? widths : [NEXT_ALLOWED_WIDTHS[0]];
+
+  return candidates
+    .map((width) => `${buildNextProxyUrl(target, width, quality)} ${width}w`)
+    .join(", ");
 }

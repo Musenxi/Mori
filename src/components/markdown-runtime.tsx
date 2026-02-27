@@ -230,6 +230,8 @@ export function MarkdownRuntime() {
         }
 
         const fallbackSrc = image.getAttribute("data-origin-src")?.trim();
+        const fallbackSrcSet = image.getAttribute("data-origin-srcset")?.trim();
+        const fallbackSizes = image.getAttribute("data-origin-sizes")?.trim();
         if (!fallbackSrc) {
           return;
         }
@@ -240,11 +242,25 @@ export function MarkdownRuntime() {
           const currentSrc = image.getAttribute("src")?.trim();
           if (!currentSrc || currentSrc === fallbackSrc) {
             image.removeAttribute("data-origin-src");
+            image.removeAttribute("data-origin-srcset");
+            image.removeAttribute("data-origin-sizes");
             return false;
           }
 
           image.setAttribute("src", fallbackSrc);
+          if (fallbackSrcSet) {
+            image.setAttribute("srcset", fallbackSrcSet);
+          } else {
+            image.removeAttribute("srcset");
+          }
+          if (fallbackSizes) {
+            image.setAttribute("sizes", fallbackSizes);
+          } else {
+            image.removeAttribute("sizes");
+          }
           image.removeAttribute("data-origin-src");
+          image.removeAttribute("data-origin-srcset");
+          image.removeAttribute("data-origin-sizes");
           return true;
         };
 

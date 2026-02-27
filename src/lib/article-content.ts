@@ -1,6 +1,6 @@
 import sanitizeHtml from "sanitize-html";
 
-import { toNextImageProxySrc } from "./image-url";
+import { toNextImageProxySrc, toNextImageProxySrcSet } from "./image-url";
 import { renderMarkdownToHtml } from "./markdown-render";
 import { stripHtml } from "./typecho-normalize";
 import { TocItem } from "./typecho-types";
@@ -22,6 +22,21 @@ async function markdownToSafeHtml(rawContent: string | undefined) {
   }
 
   return renderMarkdownToHtml(source);
+}
+
+function resolveResponsiveImageSizes(attribs: Record<string, string | undefined>) {
+  const explicit = typeof attribs.sizes === "string" ? attribs.sizes.trim() : "";
+  if (explicit) {
+    return explicit;
+  }
+
+  const widthValue = Number.parseInt(String(attribs.width || "").trim(), 10);
+  if (Number.isFinite(widthValue) && widthValue > 0) {
+    const normalized = Math.min(Math.max(widthValue, 320), 1600);
+    return `(max-width: ${normalized}px) 100vw, ${normalized}px`;
+  }
+
+  return "(max-width: 860px) calc(100vw - 1.5rem), 860px";
 }
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
@@ -100,6 +115,8 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     a: ["href", "title", "target", "rel"],
     img: [
       "src",
+      "srcset",
+      "sizes",
       "alt",
       "title",
       "width",
@@ -109,6 +126,8 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       "class",
       "aria-hidden",
       "data-origin-src",
+      "data-origin-srcset",
+      "data-origin-sizes",
     ],
     svg: ["class", "viewBox", "width", "height", "aria-hidden", "fill"],
     path: ["d", "fill", "fill-rule", "clip-rule"],
@@ -201,17 +220,32 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     img: (tagName, attribs) => {
       const source = typeof attribs.src === "string" ? attribs.src.trim() : "";
       const optimizedSource = toNextImageProxySrc(source);
+      const originalSrcSet = typeof attribs.srcset === "string" ? attribs.srcset.trim() : "";
+      const originalSizes = typeof attribs.sizes === "string" ? attribs.sizes.trim() : "";
+      const generatedSrcSet =
+        optimizedSource && source && optimizedSource !== source
+          ? toNextImageProxySrcSet(source, { maxWidth: 1600 })
+          : "";
+      const responsiveSizes = generatedSrcSet
+        ? resolveResponsiveImageSizes({
+          width: typeof attribs.width === "string" ? attribs.width : undefined,
+          sizes: originalSizes,
+        })
+        : "";
 
       return {
         tagName,
         attribs: {
           ...attribs,
           src: optimizedSource || source,
+          ...(generatedSrcSet ? { srcset: generatedSrcSet, sizes: responsiveSizes } : {}),
           loading: attribs.loading ?? "lazy",
           decoding: attribs.decoding ?? "async",
           ...(optimizedSource && source && optimizedSource !== source
             ? { "data-origin-src": source }
             : {}),
+          ...(generatedSrcSet && originalSrcSet ? { "data-origin-srcset": originalSrcSet } : {}),
+          ...(generatedSrcSet && originalSizes ? { "data-origin-sizes": originalSizes } : {}),
         },
       };
     },

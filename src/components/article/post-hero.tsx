@@ -361,7 +361,10 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
             alt={post.title}
             width={1104}
             height={460}
-            loading="lazy"
+            preload
+            loading="eager"
+            fetchPriority="high"
+            sizes="(max-width: 768px) 100vw, 1104px"
             className="h-[245px] w-full object-cover md:h-[460px]"
           />
         </figure>
