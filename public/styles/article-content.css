@@ -1255,8 +1255,11 @@
 .prose-article .mori-image-gallery.is-dual {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(1104px, calc(100vw - 40px));
   margin-top: 20px;
   margin-bottom: 20px;
+  margin-left: 50%;
+  transform: translateX(-50%);
   gap: 14px;
 }
 
@@ -1447,6 +1450,24 @@
     height: calc(475px / 2) !important;
   }
 
+  .prose-article .mori-image-gallery.is-dual .mori-image-gallery-item img[data-mori-markdown-image="1"] {
+    width: auto !important;
+    max-width: 100% !important;
+    height: auto !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .prose-article .mori-image-gallery.is-dual .mori-image-gallery-item {
+    justify-content: center;
+  }
+
+  .prose-article .mori-image-gallery.is-dual .mori-markdown-image-link {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
   .prose-article .mori-link-card-grid {
     min-height: 5.6rem;
     padding: 0.75rem 1rem;
@@ -1499,6 +1520,7 @@
 }
 
 @media (min-width: 768px) {
+  .prose-article .mori-image-gallery.is-dual,
   .prose-article .mori-image-gallery.is-carousel {
     width: min(1104px, 100vw);
   }
