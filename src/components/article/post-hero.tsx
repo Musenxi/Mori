@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getRealtimeSocket } from "@/lib/realtime-socket";
-import { toNextImageProxySrc } from "@/lib/image-url";
 import {
   NormalizedPost,
   PostCounterRealtimePayload,
@@ -92,17 +91,6 @@ function MetaItem({
 
 export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProps) {
   const fallbackCoverSrc = typeof post.coverImage === "string" ? post.coverImage.trim() : "";
-  const compressedCoverSrc = useMemo(() => {
-    if (!fallbackCoverSrc) {
-      return "";
-    }
-    return toNextImageProxySrc(fallbackCoverSrc, { width: 1600, quality: 85 });
-  }, [fallbackCoverSrc]);
-  const [coverImageSrc, setCoverImageSrc] = useState(compressedCoverSrc);
-
-  useEffect(() => {
-    setCoverImageSrc(compressedCoverSrc);
-  }, [compressedCoverSrc]);
 
   const [viewsNum, setViewsNum] = useState<number | null>(() => {
     const parsed = Number.parseInt(readCount.replace(/[^\d]/g, ""), 10);
@@ -366,21 +354,16 @@ export function PostHero({ post, readCount, likeCount, wordCount }: PostHeroProp
         </MetaItem>
       </div>
 
-      {coverImageSrc ? (
+      {fallbackCoverSrc ? (
         <figure className="w-full">
           <Image
-            src={coverImageSrc}
+            src={fallbackCoverSrc}
             alt={post.title}
             width={1104}
             height={460}
             unoptimized
             loading="eager"
             fetchPriority="high"
-            onError={() => {
-              if (fallbackCoverSrc && coverImageSrc !== fallbackCoverSrc) {
-                setCoverImageSrc(fallbackCoverSrc);
-              }
-            }}
             className="h-[245px] w-full object-cover md:h-[460px]"
           />
         </figure>

@@ -1,6 +1,5 @@
 import sanitizeHtml from "sanitize-html";
 
-import { toNextImageProxySrc } from "./image-url";
 import { renderMarkdownToHtml } from "./markdown-render";
 import { replaceOwoTokensWithHtml } from "./owo";
 import { stripHtml } from "./typecho-normalize";
@@ -109,7 +108,6 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       "decoding",
       "class",
       "aria-hidden",
-      "data-origin-src",
       "data-mori-markdown-image",
     ],
     svg: ["class", "viewBox", "width", "height", "aria-hidden", "fill"],
@@ -201,31 +199,12 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       };
     },
     img: (tagName, attribs) => {
-      const source = typeof attribs.src === "string" ? attribs.src.trim() : "";
-      const className = typeof attribs.class === "string" ? attribs.class : "";
-      const isOwo = /\bmori-owo\b/.test(className);
-      const markdownImageFlag =
-        typeof attribs["data-mori-markdown-image"] === "string"
-          ? attribs["data-mori-markdown-image"].trim()
-          : "";
-      const isMarkdownImage = markdownImageFlag === "1" || markdownImageFlag.toLowerCase() === "true";
-      const optimizedSource = isMarkdownImage && !isOwo ? toNextImageProxySrc(source) : "";
-      const sanitizedAttribs = { ...attribs };
-      delete sanitizedAttribs.srcset;
-      delete sanitizedAttribs.sizes;
-      delete sanitizedAttribs["data-origin-srcset"];
-      delete sanitizedAttribs["data-origin-sizes"];
-
       return {
         tagName,
         attribs: {
-          ...sanitizedAttribs,
-          src: optimizedSource || source,
+          ...attribs,
           loading: attribs.loading ?? "lazy",
           decoding: attribs.decoding ?? "async",
-          ...(optimizedSource && source && optimizedSource !== source
-            ? { "data-origin-src": source }
-            : {}),
         },
       };
     },

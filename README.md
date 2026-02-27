@@ -20,7 +20,6 @@
 - Tailwind CSS v4
 - `next-themes`（日/夜主题切换）
 - `sanitize-html`（文章与评论 HTML 安全过滤）
-- Next Image Optimization API（`/_next/image`，自动协商 AVIF/WebP）
 - Socket.IO（计数与在线状态实时同步）
 
 ## 本地运行
@@ -114,15 +113,12 @@ REDIS_KEY_PREFIX="mori"
 
 ## 图片优化策略
 
-- 文章正文中仅 Markdown 语法生成的图片会被改写为 `/_next/image` 固定压缩 URL，默认参数为 `w=1600&q=85`（友链头像、卡片封面等非 Markdown 图片保持原链接）。
-- 全站图片已关闭大小自适应：不再输出 `srcset/sizes` 多宽度候选，仅保留单一压缩 `src`。
+- 已移除 `/_next/image` 代理链路，正文图片、头图与 feed 图片均使用原始图片 URL。
+- 全站图片不再输出 `srcset/sizes` 多宽度候选，保留单一 `src`。
 - 图片加载时会按每张图的 URL 请求 `/api/blurhash` 生成专属 BlurHash 占位并淡入过渡（服务端生成后会缓存，避免重复计算）。
 - `NEXT_PUBLIC_IMAGE_BLURHASH` 仅作为兜底占位图（当单图 BlurHash 请求失败时使用）。
-- 文章头图使用固定压缩链接（`w=1600&q=85`），并按 LCP 场景配置为高优先加载（`loading=\"eager\" + fetchPriority=\"high\"`）。
-- 输出格式由 Next 按浏览器 `Accept` 自动协商：优先 `AVIF`，其次 `WebP`，最终回退原始编码格式。
-- 正文图片保留原始地址并在前端做失败回退：当 `/_next/image` 请求失败时会自动切回原图 URL。
-- `images.deviceSizes` 已包含：`640, 750, 828, 1080, 1200, 1600, 1920, 2048, 3840`。手动拼接 `/_next/image` 时，`w` 必须使用该集合中的值，否则会返回 `400`。
-- RSS `/feed` 中仅“文章头图 + Markdown 语法图片”走 `/_next/image` 固定压缩链接（`w=1600&q=85`）；其余图片保持原图绝对链接。
+- 文章头图使用 `next/image` 且开启 `unoptimized`，并按 LCP 场景配置为高优先加载（`loading=\"eager\" + fetchPriority=\"high\"`）。
+- RSS `/feed` 输出的图片链接为原图绝对地址，不再改写代理地址。
 
 文章浏览/点赞统计：
 

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 
 import { prepareArticleContent } from "@/lib/article-content";
-import { toNextImageProxySrc } from "@/lib/image-url";
 import { getHomeData } from "@/lib/site-data";
 import { stripHtml } from "@/lib/typecho-normalize";
 import { getSettings } from "@/lib/typecho-client";
@@ -11,8 +10,6 @@ import { NormalizedPost } from "@/lib/typecho-types";
 export const runtime = "nodejs";
 
 const FEED_LIMIT = 50;
-const FEED_IMAGE_PROXY_WIDTH = 1600;
-const FEED_IMAGE_PROXY_QUALITY = 85;
 
 function normalizeText(value: unknown, fallback: string) {
   if (typeof value !== "string") {
@@ -109,31 +106,8 @@ function removeTagAttr(tag: string, name: string) {
   return tag.replace(pattern, "");
 }
 
-function unwrapNextImageUrl(value: string, origin: string) {
-  const absolute = toAbsoluteUrl(value, origin);
-  if (!absolute) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(absolute);
-    if (parsed.pathname !== "/_next/image") {
-      return absolute;
-    }
-
-    const target = parsed.searchParams.get("url")?.trim() || "";
-    if (!target) {
-      return absolute;
-    }
-
-    return toAbsoluteUrl(target, `${parsed.protocol}//${parsed.host}`);
-  } catch {
-    return absolute;
-  }
-}
-
 function resolveFeedOriginalImageUrl(value: string, origin: string) {
-  const original = unwrapNextImageUrl(value, origin);
+  const original = toAbsoluteUrl(value, origin);
   if (!original) {
     return "";
   }
@@ -145,36 +119,14 @@ function resolveFeedOriginalImageUrl(value: string, origin: string) {
   return toAbsoluteUrl(original, origin);
 }
 
-function resolveFeedProxyImageUrl(value: string, origin: string) {
-  const original = resolveFeedOriginalImageUrl(value, origin);
-  if (!original || original.startsWith("data:")) {
-    return original;
-  }
-
-  const proxied = toNextImageProxySrc(original, {
-    width: FEED_IMAGE_PROXY_WIDTH,
-    quality: FEED_IMAGE_PROXY_QUALITY,
-  });
-  return proxied || original;
-}
-
-function isTruthyAttrValue(value: string) {
-  const normalized = value.trim().toLowerCase();
-  return normalized === "1" || normalized === "true";
-}
-
 function normalizeImgTag(tag: string, origin: string) {
   const originSrc = getTagAttr(tag, "data-origin-src");
   const currentSrc = getTagAttr(tag, "src");
   const targetSrc = originSrc || currentSrc;
-  const markdownImageFlag = getTagAttr(tag, "data-mori-markdown-image");
-  const isMarkdownImage = isTruthyAttrValue(markdownImageFlag);
 
   let normalized = tag;
   if (targetSrc) {
-    const nextSrc = isMarkdownImage
-      ? resolveFeedProxyImageUrl(targetSrc, origin)
-      : resolveFeedOriginalImageUrl(targetSrc, origin);
+    const nextSrc = resolveFeedOriginalImageUrl(targetSrc, origin);
     normalized = setTagAttr(normalized, "src", nextSrc);
   }
 
@@ -245,15 +197,6 @@ function resolveEnclosureMimeType(url: string) {
     if (direct) {
       return direct;
     }
-
-    if (parsed.pathname === "/_next/image") {
-      const target = parsed.searchParams.get("url")?.trim() || "";
-      if (!target) {
-        return "image/jpeg";
-      }
-      const nextTarget = toAbsoluteUrl(target, `${parsed.protocol}//${parsed.host}`);
-      return resolveEnclosureMimeType(nextTarget);
-    }
   } catch {
     // Ignore parse errors and fallback below.
   }
@@ -269,7 +212,7 @@ function buildEnclosureXml(post: NormalizedPost, renderedContent: string, origin
   }
 
   const absoluteUrl = cover
-    ? resolveFeedProxyImageUrl(cover, origin)
+    ? resolveFeedOriginalImageUrl(cover, origin)
     : toAbsoluteUrl(firstImage, origin);
   if (!absoluteUrl || absoluteUrl.startsWith("data:")) {
     return "";

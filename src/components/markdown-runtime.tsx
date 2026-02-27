@@ -74,15 +74,7 @@ function normalizeImageSource(input: string) {
   }
 
   try {
-    const resolved = new URL(source, window.location.origin);
-    if (resolved.pathname === "/_next/image") {
-      const original = resolved.searchParams.get("url")?.trim() || "";
-      if (original) {
-        return new URL(original, window.location.origin).toString();
-      }
-    }
-
-    return resolved.toString();
+    return new URL(source, window.location.origin).toString();
   } catch {
     return "";
   }
