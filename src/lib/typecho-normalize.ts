@@ -1,5 +1,6 @@
 import sanitizeHtml from "sanitize-html";
 import { renderSimpleMarkdownToHtml } from "./markdown-render";
+import { replaceOwoTokensWithHtml } from "./owo";
 
 import {
   NormalizedComment,
@@ -277,7 +278,8 @@ export function normalizeCommentTree(
   });
 
   return sorted.map((comment) => {
-    const rawMarkdownHtml = renderSimpleMarkdownToHtml(comment.text ?? "");
+    const markdownWithOwo = replaceOwoTokensWithHtml(comment.text ?? "");
+    const rawMarkdownHtml = renderSimpleMarkdownToHtml(markdownWithOwo);
     const html = sanitizeHtml(rawMarkdownHtml, {
       allowedTags: ["p", "br", "a", "strong", "em", "code", "pre", "blockquote", "ul", "ol", "li", "span", "img", "del", "h1", "h2", "h3", "h4", "h5", "h6", "div", "aside", "sup", "table", "thead", "tbody", "tr", "th", "td"],
       allowedAttributes: {

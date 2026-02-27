@@ -2,6 +2,7 @@ import sanitizeHtml from "sanitize-html";
 
 import { toNextImageProxySrc, toNextImageProxySrcSet } from "./image-url";
 import { renderMarkdownToHtml } from "./markdown-render";
+import { replaceOwoTokensWithHtml } from "./owo";
 import { stripHtml } from "./typecho-normalize";
 import { TocItem } from "./typecho-types";
 
@@ -16,7 +17,7 @@ function slugifyHeading(text: string) {
 }
 
 async function markdownToSafeHtml(rawContent: string | undefined) {
-  const source = rawContent?.trim() ?? "";
+  const source = replaceOwoTokensWithHtml(rawContent?.trim() ?? "");
   if (!source) {
     return "";
   }
@@ -219,11 +220,13 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     },
     img: (tagName, attribs) => {
       const source = typeof attribs.src === "string" ? attribs.src.trim() : "";
-      const optimizedSource = toNextImageProxySrc(source);
+      const className = typeof attribs.class === "string" ? attribs.class : "";
+      const isOwo = /\bmori-owo\b/.test(className);
+      const optimizedSource = isOwo ? source : toNextImageProxySrc(source);
       const originalSrcSet = typeof attribs.srcset === "string" ? attribs.srcset.trim() : "";
       const originalSizes = typeof attribs.sizes === "string" ? attribs.sizes.trim() : "";
       const generatedSrcSet =
-        optimizedSource && source && optimizedSource !== source
+        !isOwo && optimizedSource && source && optimizedSource !== source
           ? toNextImageProxySrcSet(source, { maxWidth: 1600 })
           : "";
       const responsiveSizes = generatedSrcSet

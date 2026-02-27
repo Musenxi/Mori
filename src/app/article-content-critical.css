@@ -114,6 +114,16 @@
   border-radius: 6px;
 }
 
+.prose-article .mori-owo {
+  display: inline-block;
+  width: 4em !important;
+  height: 4em !important;
+  margin: 0 0.12em;
+  vertical-align: text-bottom;
+  object-fit: contain;
+  border-radius: 0;
+}
+
 .prose-article table {
   margin-top: 24px;
   margin-left: auto;
@@ -150,6 +160,15 @@
 .prose-comment img {
   max-width: 100%;
   height: auto;
+}
+
+.prose-comment .mori-owo {
+  display: inline-block;
+  width: 4em;
+  height: 4em;
+  margin: 0 0.12em;
+  vertical-align: text-bottom;
+  object-fit: contain;
 }
 
 .prose-comment a {
