@@ -1248,6 +1248,10 @@
   object-position: center;
 }
 
+.prose-article img[data-mori-markdown-image="1"].mori-image-auto-height {
+  height: auto !important;
+}
+
 .prose-article .mori-image-gallery {
   margin-top: 24px;
 }

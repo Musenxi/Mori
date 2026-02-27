@@ -35,6 +35,51 @@ let defaultBlurhashDataUrl = "";
 const blurhashDataUrlByHash = new Map<string, string>();
 const imagePlaceholderDataUrlBySource = new Map<string, string>();
 const imagePlaceholderPendingBySource = new Map<string, Promise<string>>();
+const SINGLE_IMAGE_HEIGHT_SELECTOR = [
+  '.prose-article > img[data-mori-markdown-image="1"]',
+  '.prose-article > .mori-markdown-image-link > img[data-mori-markdown-image="1"]',
+  '.prose-article > .mori-image-single > img[data-mori-markdown-image="1"]',
+  '.prose-article > .mori-image-single > .mori-markdown-image-link > img[data-mori-markdown-image="1"]',
+  '.prose-article p > img[data-mori-markdown-image="1"]:only-child',
+  '.prose-article p > .mori-markdown-image-link:only-child > img[data-mori-markdown-image="1"]',
+].join(", ");
+const SINGLE_IMAGE_AUTO_HEIGHT_MAX_NATURAL_HEIGHT = 420;
+const SINGLE_IMAGE_AUTO_HEIGHT_MIN_WIDE_RATIO = 2;
+
+function isSingleHeightManagedMarkdownImage(image: HTMLImageElement) {
+  if (image.closest(".mori-image-gallery")) {
+    return false;
+  }
+
+  return image.matches(SINGLE_IMAGE_HEIGHT_SELECTOR);
+}
+
+function shouldUseAutoHeightForSingleImage(image: HTMLImageElement) {
+  if (!isSingleHeightManagedMarkdownImage(image)) {
+    return false;
+  }
+
+  const naturalWidth = image.naturalWidth || 0;
+  const naturalHeight = image.naturalHeight || 0;
+  if (naturalWidth <= 0 || naturalHeight <= 0) {
+    return false;
+  }
+
+  const aspectRatio = naturalWidth / naturalHeight;
+  return (
+    naturalHeight <= SINGLE_IMAGE_AUTO_HEIGHT_MAX_NATURAL_HEIGHT ||
+    aspectRatio >= SINGLE_IMAGE_AUTO_HEIGHT_MIN_WIDE_RATIO
+  );
+}
+
+function applySingleImageHeightMode(image: HTMLImageElement) {
+  if (!isSingleHeightManagedMarkdownImage(image)) {
+    image.classList.remove("mori-image-auto-height");
+    return;
+  }
+
+  image.classList.toggle("mori-image-auto-height", shouldUseAutoHeightForSingleImage(image));
+}
 
 function decodeHashToDataUrl(hash: string) {
   try {
@@ -350,6 +395,17 @@ export function MarkdownRuntime() {
         if (image.hasAttribute("data-nimg")) {
           return;
         }
+
+        if (image.dataset.moriSingleHeightBound !== "1") {
+          image.dataset.moriSingleHeightBound = "1";
+          image.addEventListener("load", () => {
+            applySingleImageHeightMode(image);
+          });
+          image.addEventListener("error", () => {
+            image.classList.remove("mori-image-auto-height");
+          });
+        }
+        applySingleImageHeightMode(image);
 
         if (!image.getAttribute("loading")) {
           image.setAttribute("loading", "lazy");
