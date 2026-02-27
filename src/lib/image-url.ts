@@ -74,7 +74,7 @@ export function toNextImageProxySrc(input?: string | null, options?: { width?: n
   }
 
   const width = normalizeNextWidth(options?.width ?? 1600);
-  const quality = clampInteger(options?.quality ?? 75, 1, 100);
+  const quality = clampInteger(options?.quality ?? 85, 1, 100);
   return buildNextProxyUrl(target, width, quality);
 }
 
@@ -84,7 +84,7 @@ export function toNextImageProxySrcSet(input?: string | null, options?: { maxWid
     return "";
   }
 
-  const quality = clampInteger(options?.quality ?? 75, 1, 100);
+  const quality = clampInteger(options?.quality ?? 85, 1, 100);
   const maxWidth = normalizeNextWidth(options?.maxWidth ?? 1600);
   const widths = NEXT_ALLOWED_WIDTHS.filter((width) => width <= maxWidth);
   const candidates = widths.length > 0 ? widths : [NEXT_ALLOWED_WIDTHS[0]];
