@@ -1237,6 +1237,17 @@ img.medium-zoom-image--opened {
   width: 100%;
 }
 
+.prose-article > .mori-image-single > .mori-live-photo {
+  width: 100%;
+  margin: 0;
+}
+
+.prose-article > .mori-image-single > .mori-live-photo > .mori-live-photo-player {
+  width: 100%;
+  height: 550px;
+  min-height: 0;
+}
+
 .prose-article > .mori-image-single > img[data-mori-markdown-image="1"],
 .prose-article > .mori-image-single > .mori-markdown-image-link > img[data-mori-markdown-image="1"] {
   margin-top: 0;
@@ -1299,11 +1310,22 @@ img.medium-zoom-image--opened {
   width: 100%;
 }
 
+.prose-article .mori-image-gallery-item .mori-live-photo {
+  width: 100%;
+  margin: 0;
+}
+
 .prose-article .mori-image-gallery.is-dual .mori-image-gallery-item img[data-mori-markdown-image="1"] {
   width: 100%;
   height: 550px !important;
   object-fit: contain;
   object-position: center;
+}
+
+.prose-article .mori-image-gallery.is-dual .mori-image-gallery-item .mori-live-photo-player {
+  width: 100%;
+  height: 550px;
+  min-height: 0;
 }
 
 .prose-article .mori-image-gallery.is-carousel {
@@ -1343,12 +1365,24 @@ img.medium-zoom-image--opened {
   justify-content: center;
 }
 
+.prose-article .mori-image-gallery.is-carousel .mori-image-gallery-item .mori-live-photo {
+  width: auto;
+  margin: 0;
+}
+
 .prose-article .mori-image-gallery.is-carousel .mori-image-gallery-item img[data-mori-markdown-image="1"] {
   width: auto !important;
   max-width: none !important;
   height: 475px !important;
   object-fit: contain;
   object-position: center;
+  border-radius: 0;
+}
+
+.prose-article .mori-image-gallery.is-carousel .mori-image-gallery-item .mori-live-photo-player {
+  width: calc(475px * 4 / 3);
+  height: 475px;
+  min-height: 0;
   border-radius: 0;
 }
 
@@ -1368,6 +1402,40 @@ img.medium-zoom-image--opened {
   color: var(--secondary);
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.prose-article .mori-live-photo {
+  width: min(100%, 1104px);
+  margin: 40px auto;
+}
+
+.prose-article .mori-live-photo-player {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  min-height: 260px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--tag) 72%, transparent);
+}
+
+.prose-article .mori-live-photo-player > img {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+.prose-article .mori-live-photo-caption {
+  margin-top: 10px;
+  text-align: center;
+  font-family: var(--font-inter), "PingFang SC", sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--secondary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .prose-article .mori-owo {
@@ -1450,6 +1518,10 @@ img.medium-zoom-image--opened {
     max-width: none;
   }
 
+  .prose-article > .mori-image-single > .mori-live-photo {
+    width: 100%;
+  }
+
   .prose-article > img[data-mori-markdown-image="1"],
   .prose-article > .mori-markdown-image-link > img[data-mori-markdown-image="1"],
   .prose-article > .mori-image-single > img[data-mori-markdown-image="1"],
@@ -1476,6 +1548,26 @@ img.medium-zoom-image--opened {
     height: calc(475px / 2) !important;
   }
 
+  .prose-article > .mori-image-single > .mori-live-photo > .mori-live-photo-player {
+    min-height: 180px;
+    height: auto;
+  }
+
+  .prose-article .mori-image-gallery.is-dual .mori-image-gallery-item .mori-live-photo-player {
+    min-height: 160px;
+    height: auto;
+  }
+
+  .prose-article .mori-image-gallery.is-carousel .mori-image-gallery-item .mori-live-photo {
+    width: auto;
+  }
+
+  .prose-article .mori-image-gallery.is-carousel .mori-image-gallery-item .mori-live-photo-player {
+    width: calc((475px / 2) * 4 / 3);
+    height: calc(475px / 2);
+    min-height: 0;
+  }
+
   .prose-article .mori-image-gallery.is-dual .mori-image-gallery-item img[data-mori-markdown-image="1"] {
     width: auto !important;
     max-width: 100% !important;
@@ -1492,6 +1584,16 @@ img.medium-zoom-image--opened {
     width: 100%;
     display: flex;
     justify-content: center;
+  }
+
+  .prose-article .mori-live-photo {
+    width: 80%;
+    max-width: none;
+  }
+
+  .prose-article .mori-live-photo-player {
+    min-height: 180px;
+    border-radius: 0;
   }
 
   .prose-article .mori-link-card-grid {

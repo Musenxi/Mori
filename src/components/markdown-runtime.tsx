@@ -25,6 +25,16 @@ type ExcalidrawProps = {
 };
 type ExcalidrawComponentType = ComponentType<ExcalidrawProps>;
 type MediumZoomInstance = import("medium-zoom").Zoom;
+type LivePhotosKitPlayer = {
+  photoSrc?: string;
+  videoSrc?: string;
+};
+type LivePhotosKitNamespace = {
+  Player?: (element: HTMLElement) => LivePhotosKitPlayer;
+};
+type LivePhotoWindow = Window & typeof globalThis & {
+  LivePhotosKit?: LivePhotosKitNamespace;
+};
 
 let excalidrawComponentPromise: Promise<ExcalidrawComponentType> | null = null;
 const EXCALIDRAW_PORTAL_SELECTOR = ".excalidraw-modal-container";
@@ -48,6 +58,8 @@ const IMAGE_REVEAL_START_OPACITY = 0.6;
 const DEFERRED_IMAGE_FADE_START_OPACITY = "0.55";
 const DEFERRED_IMAGE_PRELOAD_ROOT_MARGIN = "100% 100% 100% 100%";
 const ZOOMABLE_MARKDOWN_IMAGE_SELECTOR = 'img[data-mori-markdown-image="1"]';
+const LIVE_PHOTO_SELECTOR = '[data-mori-live-photo="1"]';
+const LIVE_PHOTO_SCRIPT_SRC = "https://cdn.apple-livephotoskit.com/lpk/1/livephotoskit.js";
 const SINGLE_IMAGE_HEIGHT_SELECTOR = [
   '.prose-article > img[data-mori-markdown-image="1"]',
   '.prose-article > .mori-markdown-image-link > img[data-mori-markdown-image="1"]',
@@ -58,6 +70,7 @@ const SINGLE_IMAGE_HEIGHT_SELECTOR = [
 ].join(", ");
 const SINGLE_IMAGE_AUTO_HEIGHT_MAX_NATURAL_HEIGHT = 420;
 const SINGLE_IMAGE_AUTO_HEIGHT_MIN_WIDE_RATIO = 2;
+let livePhotosKitScriptPromise: Promise<void> | null = null;
 type RevealAnimate = (
   target: Element,
   keyframes: Record<string, unknown>,
@@ -496,6 +509,63 @@ async function loadExcalidrawComponent() {
   return excalidrawComponentPromise;
 }
 
+function loadLivePhotosKitScript() {
+  if (typeof window === "undefined") {
+    return Promise.resolve();
+  }
+
+  const runtimeWindow = window as LivePhotoWindow;
+  if (runtimeWindow.LivePhotosKit?.Player) {
+    return Promise.resolve();
+  }
+
+  if (livePhotosKitScriptPromise) {
+    return livePhotosKitScriptPromise;
+  }
+
+  livePhotosKitScriptPromise = new Promise<void>((resolve, reject) => {
+    const onLoaded = () => {
+      if ((window as LivePhotoWindow).LivePhotosKit?.Player) {
+        resolve();
+        return;
+      }
+
+      reject(new Error("LivePhotosKit is unavailable after script load."));
+    };
+
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${LIVE_PHOTO_SCRIPT_SRC}"]`);
+    if (existing) {
+      if (existing.dataset.moriLivephotoskitLoaded === "1") {
+        onLoaded();
+        return;
+      }
+
+      existing.addEventListener("load", () => {
+        existing.dataset.moriLivephotoskitLoaded = "1";
+        onLoaded();
+      }, { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load LivePhotosKit script.")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = LIVE_PHOTO_SCRIPT_SRC;
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => {
+      script.dataset.moriLivephotoskitLoaded = "1";
+      onLoaded();
+    }, { once: true });
+    script.addEventListener("error", () => reject(new Error("Failed to load LivePhotosKit script.")), { once: true });
+    document.head.appendChild(script);
+  }).catch((error) => {
+    livePhotosKitScriptPromise = null;
+    throw error;
+  });
+
+  return livePhotosKitScriptPromise;
+}
+
 function activateTab(root: HTMLElement, index: string) {
   const allTriggers = root.querySelectorAll<HTMLButtonElement>(".mori-tab-trigger");
   const allPanels = root.querySelectorAll<HTMLElement>(".mori-tab-panel");
@@ -902,6 +972,63 @@ export function MarkdownRuntime() {
       refreshImageZoomTargets();
     };
 
+    const enhanceLivePhotos = () => {
+      if (disposed) {
+        return;
+      }
+
+      const targets = Array.from(
+        document.querySelectorAll<HTMLElement>(LIVE_PHOTO_SELECTOR),
+      ).filter((node) => node.dataset.moriLivePhotoBound !== "1");
+
+      if (targets.length === 0) {
+        return;
+      }
+
+      void loadLivePhotosKitScript()
+        .then(() => {
+          if (disposed) {
+            return;
+          }
+
+          const runtimeWindow = window as LivePhotoWindow;
+          const playerFactory = runtimeWindow.LivePhotosKit?.Player;
+          if (typeof playerFactory !== "function") {
+            return;
+          }
+
+          targets.forEach((node) => {
+            if (node.dataset.moriLivePhotoBound === "1") {
+              return;
+            }
+
+            const photoSrc = node.dataset.photoSrc?.trim() || "";
+            const videoSrc = node.dataset.videoSrc?.trim() || "";
+            if (!photoSrc || !videoSrc) {
+              return;
+            }
+
+            node.setAttribute("data-live-photo", "true");
+            node.setAttribute("data-photo-src", photoSrc);
+            node.setAttribute("data-video-src", videoSrc);
+
+            try {
+              const player = playerFactory(node);
+              if (player && typeof player === "object") {
+                player.photoSrc = photoSrc;
+                player.videoSrc = videoSrc;
+              }
+              node.dataset.moriLivePhotoBound = "1";
+            } catch {
+              node.dataset.moriLivePhotoBound = "error";
+            }
+          });
+        })
+        .catch(() => {
+          // Keep static fallback images when script loading fails.
+        });
+    };
+
     const scheduleRootUnmount = (root: Root) => {
       if (pendingRootUnmounts.has(root)) {
         return;
@@ -1028,6 +1155,7 @@ export function MarkdownRuntime() {
       mountAllExcalidraw();
       shuffleFriendLinks();
       enhanceImages();
+      enhanceLivePhotos();
       refreshImageZoomTargets();
     });
 
@@ -1040,6 +1168,7 @@ export function MarkdownRuntime() {
       shuffleFriendLinks();
       setupImageZoom();
       enhanceImages();
+      enhanceLivePhotos();
       observer.observe(document.body, {
         childList: true,
         subtree: true,

@@ -27,8 +27,11 @@ async function markdownToSafeHtml(rawContent: string | undefined) {
 const MARKDOWN_IMAGE_UNIT_PATTERN =
   /<p>\s*(?:<a\b[^>]*\bmori-markdown-image-link\b[^>]*>\s*<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>\s*<\/a>|<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>)\s*<\/p>|<a\b[^>]*\bmori-markdown-image-link\b[^>]*>\s*<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>\s*<\/a>|<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>/gi;
 const MARKDOWN_IMAGE_TAG_IN_UNIT_PATTERN = /<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>/i;
+const MARKDOWN_LIVE_PHOTO_UNIT_PATTERN =
+  /<div\b[^>]*\bdata-mori-live-photo-block="1"[^>]*>\s*<div\b[^>]*\bdata-mori-live-photo="1"[^>]*>[\s\S]*?<\/div>\s*(?:<p\b[^>]*\bmori-live-photo-caption\b[^>]*>[\s\S]*?<\/p>)?\s*<\/div>/gi;
 
-type MarkdownImageUnit = {
+type MarkdownMediaUnit = {
+  kind: "image" | "live";
   html: string;
   start: number;
   end: number;
@@ -104,15 +107,43 @@ function resolveMarkdownImageCaption(unitHtml: string) {
   return title || alt || resolveImageFileNameFromSrc(src);
 }
 
-function buildMarkdownImageSingle(unit: MarkdownImageUnit) {
-  const normalized = normalizeMarkdownImageUnitHtml(unit.html);
-  const caption = resolveMarkdownImageCaption(normalized);
+function resolveLivePhotoCaption(unitHtml: string) {
+  const outerTag = unitHtml.match(/^<div\b[^>]*>/i)?.[0] || "";
+  const description = decodeHtmlEntity(readTagAttribute(outerTag, "data-live-photo-description")).trim();
+  if (description) {
+    return description;
+  }
+
+  const playerTag = unitHtml.match(/<div\b[^>]*\bdata-mori-live-photo="1"[^>]*>/i)?.[0] || "";
+  const ariaLabel = decodeHtmlEntity(readTagAttribute(playerTag, "aria-label")).trim();
+  return ariaLabel.toLowerCase() === "live photo" ? "" : ariaLabel;
+}
+
+function normalizeMarkdownMediaUnitHtml(unit: MarkdownMediaUnit) {
+  if (unit.kind === "image") {
+    return normalizeMarkdownImageUnitHtml(unit.html);
+  }
+
+  return unit.html.trim();
+}
+
+function resolveMarkdownMediaCaption(unit: MarkdownMediaUnit) {
+  if (unit.kind === "live") {
+    return resolveLivePhotoCaption(unit.html);
+  }
+
+  return resolveMarkdownImageCaption(normalizeMarkdownImageUnitHtml(unit.html));
+}
+
+function buildMarkdownMediaSingle(unit: MarkdownMediaUnit) {
+  const normalized = normalizeMarkdownMediaUnitHtml(unit);
+  const caption = resolveMarkdownMediaCaption(unit);
   const captionHtml = caption ? `<figcaption class="mori-image-caption">${escapeHtmlText(caption)}</figcaption>` : "";
 
   return `<figure class="mori-image-single">${normalized}${captionHtml}</figure>`;
 }
 
-function buildMarkdownImageGallery(units: MarkdownImageUnit[]) {
+function buildMarkdownMediaGallery(units: MarkdownMediaUnit[]) {
   const count = units.length;
   if (count < 2) {
     return "";
@@ -121,8 +152,8 @@ function buildMarkdownImageGallery(units: MarkdownImageUnit[]) {
   const layoutClass = count === 2 ? "is-dual" : "is-carousel";
   const items = units
     .map((unit, index) => {
-      const normalized = normalizeMarkdownImageUnitHtml(unit.html);
-      const caption = resolveMarkdownImageCaption(normalized);
+      const normalized = normalizeMarkdownMediaUnitHtml(unit);
+      const caption = resolveMarkdownMediaCaption(unit);
       const counterText = count > 2 ? `${index + 1} / ${count}` : "";
       const captionInner = [
         counterText ? `<span class="mori-gallery-counter">${counterText}</span>` : "",
@@ -136,34 +167,74 @@ function buildMarkdownImageGallery(units: MarkdownImageUnit[]) {
   return `<div class="mori-image-gallery ${layoutClass}" data-image-count="${count}">${items}</div>`;
 }
 
-function applyMarkdownImageGalleryLayout(html: string) {
-  if (!html || !html.includes("data-mori-markdown-image=\"1\"")) {
-    return html;
-  }
+function collectMarkdownMediaUnits(html: string) {
+  const units: MarkdownMediaUnit[] = [];
 
   MARKDOWN_IMAGE_UNIT_PATTERN.lastIndex = 0;
-  const units: MarkdownImageUnit[] = [];
-  let match: RegExpExecArray | null = MARKDOWN_IMAGE_UNIT_PATTERN.exec(html);
-  while (match) {
-    const matchedHtml = match[0];
-    const start = typeof match.index === "number" ? match.index : -1;
+  let imageMatch: RegExpExecArray | null = MARKDOWN_IMAGE_UNIT_PATTERN.exec(html);
+  while (imageMatch) {
+    const matchedHtml = imageMatch[0];
+    const start = typeof imageMatch.index === "number" ? imageMatch.index : -1;
     if (start >= 0) {
       units.push({
+        kind: "image",
         html: matchedHtml,
         start,
         end: start + matchedHtml.length,
       });
     }
 
-    match = MARKDOWN_IMAGE_UNIT_PATTERN.exec(html);
+    imageMatch = MARKDOWN_IMAGE_UNIT_PATTERN.exec(html);
   }
 
+  MARKDOWN_LIVE_PHOTO_UNIT_PATTERN.lastIndex = 0;
+  let liveMatch: RegExpExecArray | null = MARKDOWN_LIVE_PHOTO_UNIT_PATTERN.exec(html);
+  while (liveMatch) {
+    const matchedHtml = liveMatch[0];
+    const start = typeof liveMatch.index === "number" ? liveMatch.index : -1;
+    if (start >= 0) {
+      units.push({
+        kind: "live",
+        html: matchedHtml,
+        start,
+        end: start + matchedHtml.length,
+      });
+    }
+
+    liveMatch = MARKDOWN_LIVE_PHOTO_UNIT_PATTERN.exec(html);
+  }
+
+  if (units.length <= 1) {
+    return units;
+  }
+
+  return units
+    .sort((a, b) => a.start - b.start)
+    .filter((unit, index, sorted) => {
+      if (index === 0) {
+        return true;
+      }
+
+      const previous = sorted[index - 1];
+      return unit.start >= previous.end;
+    });
+}
+
+function applyMarkdownImageGalleryLayout(html: string) {
+  if (
+    !html ||
+    (!html.includes("data-mori-markdown-image=\"1\"") && !html.includes("data-mori-live-photo-block=\"1\""))
+  ) {
+    return html;
+  }
+
+  const units = collectMarkdownMediaUnits(html);
   if (units.length === 0) {
     return html;
   }
 
   const replacements: Array<{ start: number; end: number; html: string }> = [];
-  let activeGroup: MarkdownImageUnit[] = [];
+  let activeGroup: MarkdownMediaUnit[] = [];
 
   const flushActiveGroup = () => {
     if (activeGroup.length === 0) {
@@ -174,7 +245,7 @@ function applyMarkdownImageGalleryLayout(html: string) {
     const first = activeGroup[0];
     const last = activeGroup[activeGroup.length - 1];
     const replacementHtml =
-      activeGroup.length === 1 ? buildMarkdownImageSingle(activeGroup[0]) : buildMarkdownImageGallery(activeGroup);
+      activeGroup.length === 1 ? buildMarkdownMediaSingle(activeGroup[0]) : buildMarkdownMediaGallery(activeGroup);
 
     replacements.push({
       start: first.start,
@@ -344,6 +415,11 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       "data-mori-tabs",
       "data-mori-excalidraw",
       "data-mori-friend-links",
+      "data-mori-live-photo-block",
+      "data-mori-live-photo",
+      "data-live-photo-description",
+      "data-photo-src",
+      "data-video-src",
       "data-items",
       "data-tab-index",
       "data-source",

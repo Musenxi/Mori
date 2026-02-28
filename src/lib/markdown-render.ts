@@ -52,6 +52,20 @@ const FRIEND_LINK_BLOCK_REGEX = new RegExp(
 );
 const FRIEND_LINK_PLACEHOLDER_REGEX =
   /<div data-mori-friend-links="1" data-items="([^"]*)">[\s\S]*?<\/div>/g;
+// Live syntax must stay on a single line; only spaces/tabs are allowed between tokens.
+const LIVE_PHOTO_TOKEN_SEPARATOR = String.raw`[ \t]*`;
+const LIVE_PHOTO_TOKEN_REGEX = new RegExp(
+  String.raw`\[live\]` +
+  LIVE_PHOTO_TOKEN_SEPARATOR +
+  String.raw`\[([^\]\r\n]+)\]` +
+  LIVE_PHOTO_TOKEN_SEPARATOR +
+  String.raw`\[([^\]\r\n]+)\]` +
+  String.raw`(?:` +
+  LIVE_PHOTO_TOKEN_SEPARATOR +
+  String.raw`\[([^\]\r\n]*)\]` +
+  String.raw`)?`,
+  "gim",
+);
 const LANGUAGE_ALIAS: Record<string, string> = {
   csharp: "c#",
   cxx: "cpp",
@@ -1517,6 +1531,50 @@ function preprocessFriendLinks(markdown: string): string {
   return replaced.replace(/\x00CODEBLOCK_(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)] || "");
 }
 
+function preprocessLivePhotos(markdown: string): string {
+  // Keep fenced/indented code blocks untouched, then restore after replacement.
+  const codeBlocks: string[] = [];
+  const CODE_FENCE_REGEX = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1\s*$/gm;
+  const CODE_INDENT_REGEX = /^(?: {4}|\t).+(?:\n(?:(?: {4}|\t).+|\s*))*$/gm;
+
+  let protected_ = markdown.replace(CODE_FENCE_REGEX, (m) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(m);
+    return `\x00CODEBLOCK_${idx}\x00`;
+  });
+
+  protected_ = protected_.replace(CODE_INDENT_REGEX, (m) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(m);
+    return `\x00CODEBLOCK_${idx}\x00`;
+  });
+
+  const replaced = protected_.replace(
+    LIVE_PHOTO_TOKEN_REGEX,
+    (raw, photoRaw: string, videoRaw: string, descriptionRaw: string) => {
+      const photoSrc = sanitizeUrl(String(photoRaw || "").trim()) || "";
+      const videoSrc = sanitizeUrl(String(videoRaw || "").trim()) || "";
+      if (!photoSrc || !videoSrc) {
+        return raw;
+      }
+
+      const description = decodeHtmlEntities(String(descriptionRaw || "").trim());
+      const accessibleLabel = description || "Live Photo";
+      const descriptionAttribute = description
+        ? ` data-live-photo-description="${escapeAttributeValue(description)}"`
+        : "";
+
+      return `\n\n<div class="mori-live-photo" data-mori-live-photo-block="1"${descriptionAttribute}>
+<div class="mori-live-photo-player" data-mori-live-photo="1" data-photo-src="${escapeAttributeValue(photoSrc)}" data-video-src="${escapeAttributeValue(videoSrc)}" role="img" aria-label="${escapeAttributeValue(accessibleLabel)}">
+<img src="${escapeAttributeValue(photoSrc)}" alt="${escapeAttributeValue(accessibleLabel)}" loading="lazy" decoding="async">
+</div>
+</div>\n\n`;
+    },
+  );
+
+  return replaced.replace(/\x00CODEBLOCK_(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)] || "");
+}
+
 function applyFriendLinksPlaceholder(html: string): string {
   if (!html.includes('data-mori-friend-links="1"')) {
     return html;
@@ -1776,20 +1834,12 @@ const markdownOptions: MarkdownToJSX.Options = {
 
         if (meaningfulNodes.length === 1) {
           const single = meaningfulNodes[0] as Record<string, unknown>;
-          if (single?.type === "image" || single?.type === "refImage") {
-            return toHtml(output(node.content, state));
-          }
-
-          if (single?.type === "link" || single?.type === "refLink") {
+          if (single?.type === "link") {
             const renderedLink = toHtml(output(node.content, state));
             if (
-              /class="[^"]*\bmori-markdown-image-link\b[^"]*"/i.test(renderedLink) ||
-              MARKDOWN_IMAGE_ELEMENT_REGEX.test(renderedLink)
+              !/class="[^"]*\bmori-markdown-image-link\b[^"]*"/i.test(renderedLink) &&
+              !MARKDOWN_IMAGE_ELEMENT_REGEX.test(renderedLink)
             ) {
-              return renderedLink;
-            }
-
-            if (single?.type === "link") {
               const target = sanitizeUrl(String(single.target || "").trim()) || "";
               if (target && /^https?:\/\//i.test(target)) {
                 const label = extractTextFromMarkdownNode(single.content).trim();
@@ -1801,7 +1851,18 @@ const markdownOptions: MarkdownToJSX.Options = {
           }
         }
 
-        return `<p>${toHtml(output(node.content, state))}</p>`;
+        const renderedHtml = toHtml(output(node.content, state));
+        const stripped = renderedHtml
+          .replace(/<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>/gi, "")
+          .replace(/<a\b[^>]*\bclass="[^"]*\bmori-markdown-image-link\b[^"]*"[^>]*>\s*<\/a>/gi, "")
+          .replace(/<div\b[^>]*\bdata-mori-rich-link="1"[^>]*><\/div>/gi, "")
+          .replace(/\s+/g, "");
+
+        if (stripped === "") {
+          return renderedHtml;
+        }
+
+        return `<p>${renderedHtml}</p>`;
       },
     },
     image: {
@@ -1880,7 +1941,7 @@ export function renderSimpleMarkdownToHtml(rawMarkdown: string) {
   }
 
   return withMarkdownRenderScope(() => {
-    const preprocessed = preprocessFriendLinks(source);
+    const preprocessed = preprocessLivePhotos(preprocessFriendLinks(source));
     const compileSource = `${DOC_HEAD_GUARD_HTML}\n\n${preprocessed}`;
 
     const previousReferenceLinkDefinitions = activeReferenceLinkDefinitions;
@@ -1910,7 +1971,7 @@ export async function renderMarkdownToHtml(rawMarkdown: string) {
 
   const rawHtml = withMarkdownRenderScope(() => {
     // Pre-process friend links before markdown compilation
-    const preprocessed = preprocessFriendLinks(source);
+    const preprocessed = preprocessLivePhotos(preprocessFriendLinks(source));
 
     // @innei/markdown-to-jsx has a block-parsing edge case at document start
     // (the first list/hr block may not be recognized). We prepend a guard node
