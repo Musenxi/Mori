@@ -277,7 +277,7 @@ img.medium-zoom-image--opened {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 .prose-article .mori-image-gallery.is-carousel .mori-markdown-image-link {
@@ -294,7 +294,7 @@ img.medium-zoom-image--opened {
   height: 475px !important;
   object-fit: contain;
   object-position: center;
-  border-radius: inherit;
+  border-radius: 0;
 }
 
 .prose-article .mori-image-gallery-item img[data-mori-markdown-image="1"] {
