@@ -1,6 +1,7 @@
 "use client";
 
 import { decode as decodeBlurhash } from "blurhash";
+import { animate } from "motion";
 import type { ComponentType } from "react";
 import { useEffect } from "react";
 import { createRoot, Root } from "react-dom/client";
@@ -39,6 +40,10 @@ const imagePlaceholderPendingBySource = new Map<string, Promise<string>>();
 const BLURHASH_DATA_URL_STORAGE_PREFIX = "mori:blurhash:data-url:";
 const BLURHASH_PLACEHOLDER_OPACITY = "1";
 const IMAGE_FADE_DURATION_MS = 680;
+const IMAGE_REVEAL_DURATION_MS = 900;
+const IMAGE_REVEAL_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+const IMAGE_REVEAL_BLUR_PX = 10;
+const IMAGE_REVEAL_START_OPACITY = 0.6;
 const DEFERRED_IMAGE_FADE_START_OPACITY = "0.55";
 const DEFERRED_IMAGE_PRELOAD_ROOT_MARGIN = "100% 100% 100% 100%";
 const ZOOMABLE_MARKDOWN_IMAGE_SELECTOR = 'img[data-mori-markdown-image="1"]';
@@ -52,6 +57,12 @@ const SINGLE_IMAGE_HEIGHT_SELECTOR = [
 ].join(", ");
 const SINGLE_IMAGE_AUTO_HEIGHT_MAX_NATURAL_HEIGHT = 420;
 const SINGLE_IMAGE_AUTO_HEIGHT_MIN_WIDE_RATIO = 2;
+type RevealAnimate = (
+  target: Element,
+  keyframes: Record<string, unknown>,
+  options: { duration?: number; easing?: string | number[] },
+) => Animation;
+const animateElement = animate as unknown as RevealAnimate;
 
 function isSingleHeightManagedMarkdownImage(image: HTMLImageElement) {
   if (image.closest(".mori-image-gallery")) {
@@ -612,6 +623,8 @@ export function MarkdownRuntime() {
           image.dataset.moriImageBlurhashBound = "1";
 
           let cleaned = false;
+          let revealStarted = false;
+          let shouldSkipReveal = false;
           const shouldUseBackgroundPlaceholder = !image.getAttribute("data-origin-src")?.trim();
           const isWaitingForDeferredSource = () => {
             const currentSrc = image.getAttribute("src")?.trim() || "";
@@ -625,6 +638,8 @@ export function MarkdownRuntime() {
             cleaned = true;
             image.removeEventListener("load", handleImageLoad);
             image.removeEventListener("error", handleImageError);
+            image.style.removeProperty("filter");
+            image.style.removeProperty("will-change");
             image.style.removeProperty("background-image");
             image.style.removeProperty("background-color");
             image.style.removeProperty("background-size");
@@ -634,10 +649,15 @@ export function MarkdownRuntime() {
             image.style.removeProperty("transition");
           };
 
+          const prepareRevealStyles = () => {
+            image.style.willChange = "opacity, filter";
+            image.style.filter = `blur(${IMAGE_REVEAL_BLUR_PX}px)`;
+          };
+
           const applyPlaceholder = (dataUrl: string) => {
+            prepareRevealStyles();
             if (!shouldUseBackgroundPlaceholder) {
               image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
-              image.style.transition = `opacity ${IMAGE_FADE_DURATION_MS}ms ease`;
               return;
             }
             image.style.removeProperty("background-color");
@@ -653,7 +673,41 @@ export function MarkdownRuntime() {
               image.style.removeProperty("background-repeat");
             }
             image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
-            image.style.transition = `opacity ${IMAGE_FADE_DURATION_MS}ms ease`;
+          };
+
+          const runRevealAnimation = (instant: boolean) => {
+            if (revealStarted) {
+              return;
+            }
+            revealStarted = true;
+
+            if (instant) {
+              image.style.opacity = "1";
+              image.style.filter = "blur(0px)";
+              cleanupPlaceholder();
+              return;
+            }
+
+            const currentOpacity = Number.parseFloat(image.style.opacity || "");
+            const startOpacity = Number.isFinite(currentOpacity) ? currentOpacity : IMAGE_REVEAL_START_OPACITY;
+
+            const revealAnimation = animateElement(
+              image,
+              {
+                opacity: [startOpacity, 1],
+                filter: [`blur(${IMAGE_REVEAL_BLUR_PX}px)`, "blur(0px)"],
+              },
+              {
+                duration: IMAGE_REVEAL_DURATION_MS / 1000,
+                easing: IMAGE_REVEAL_EASING,
+              },
+            );
+
+            void revealAnimation.finished.then(() => {
+              cleanupPlaceholder();
+            }).catch(() => {
+              cleanupPlaceholder();
+            });
           };
 
           const handleImageLoad = () => {
@@ -661,16 +715,14 @@ export function MarkdownRuntime() {
               return;
             }
             window.requestAnimationFrame(() => {
-              image.style.opacity = "1";
-              window.setTimeout(() => {
-                cleanupPlaceholder();
-              }, IMAGE_FADE_DURATION_MS);
+              runRevealAnimation(shouldSkipReveal);
             });
           };
 
           const handleImageError = () => {
             const hasFallback = Boolean(image.getAttribute("data-origin-src")?.trim());
             if (hasFallback) {
+              prepareRevealStyles();
               image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
               return;
             }
@@ -681,6 +733,10 @@ export function MarkdownRuntime() {
 
           image.addEventListener("load", handleImageLoad);
           image.addEventListener("error", handleImageError);
+
+          if (image.complete && image.naturalWidth > 0) {
+            shouldSkipReveal = true;
+          }
 
           if (shouldUseBackgroundPlaceholder && (isWaitingForDeferredSource() || !image.complete || image.naturalWidth === 0)) {
             const source =
@@ -735,8 +791,9 @@ export function MarkdownRuntime() {
           image.setAttribute("src", fallbackSrc);
           if (image.dataset.moriImageBlurhashBound === "1" && shouldUseFallbackBackgroundPlaceholder) {
             image.style.removeProperty("background-color");
+            image.style.willChange = "opacity, filter";
+            image.style.filter = `blur(${IMAGE_REVEAL_BLUR_PX}px)`;
             image.style.opacity = BLURHASH_PLACEHOLDER_OPACITY;
-            image.style.transition = `opacity ${IMAGE_FADE_DURATION_MS}ms ease`;
             void resolvePerImagePlaceholderDataUrl(fallbackSrc).then((dataUrl) => {
               if (!dataUrl) {
                 return;

@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getRealtimeSocket } from "@/lib/realtime-socket";
 import {
@@ -87,6 +88,64 @@ function MetaItem({
       </span>
       <span>{children}</span>
     </span>
+  );
+}
+
+function CoverImage({
+  src,
+  alt,
+  blurDataUrl,
+}: {
+  src: string;
+  alt: string;
+  blurDataUrl?: string;
+}) {
+  const coverImageRef = useRef<HTMLImageElement | null>(null);
+  const [coverLoaded, setCoverLoaded] = useState(false);
+  const [skipCoverAnimation, setSkipCoverAnimation] = useState(false);
+  const coverPlaceholderStyle = blurDataUrl && !coverLoaded
+    ? {
+      backgroundImage: `url("${blurDataUrl}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    }
+    : undefined;
+
+  const handleCoverRef = useCallback((node: HTMLImageElement | null) => {
+    coverImageRef.current = node;
+    if (node && node.complete && node.naturalWidth > 0) {
+      setCoverLoaded(true);
+      setSkipCoverAnimation(true);
+    }
+  }, []);
+
+  return (
+    <figure className="relative w-full overflow-hidden" style={coverPlaceholderStyle}>
+      <motion.div
+        initial={skipCoverAnimation ? false : { opacity: 0, filter: "blur(10px)" }}
+        animate={coverLoaded ? { opacity: 1, filter: "blur(0px)" } : { opacity: 0, filter: "blur(10px)" }}
+        transition={{
+          opacity: { duration: 0.6, ease: "easeOut" },
+          filter: { duration: 0.9, ease: "easeOut" },
+        }}
+      >
+        <Image
+          ref={handleCoverRef}
+          src={src}
+          alt={alt}
+          width={1104}
+          height={460}
+          unoptimized
+          loading="eager"
+          fetchPriority="high"
+          placeholder={blurDataUrl ? "blur" : "empty"}
+          blurDataURL={blurDataUrl || undefined}
+          onLoadingComplete={() => setCoverLoaded(true)}
+          className="h-[245px] w-full object-cover md:h-[460px]"
+        />
+      </motion.div>
+    </figure>
   );
 }
 
@@ -356,20 +415,12 @@ export function PostHero({ post, readCount, likeCount, wordCount, coverBlurDataU
       </div>
 
       {fallbackCoverSrc ? (
-        <figure className="w-full">
-          <Image
-            src={fallbackCoverSrc}
-            alt={post.title}
-            width={1104}
-            height={460}
-            unoptimized
-            loading="eager"
-            fetchPriority="high"
-            placeholder={coverBlurDataUrl ? "blur" : "empty"}
-            blurDataURL={coverBlurDataUrl || undefined}
-            className="h-[245px] w-full object-cover md:h-[460px]"
-          />
-        </figure>
+        <CoverImage
+          key={fallbackCoverSrc}
+          src={fallbackCoverSrc}
+          alt={post.title}
+          blurDataUrl={coverBlurDataUrl}
+        />
       ) : null}
     </section>
   );

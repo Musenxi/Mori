@@ -20,7 +20,9 @@ const BLURHASH_FETCH_TIMEOUT_MS = parsePositiveInt(process.env.BLURHASH_FETCH_TI
 const BLURHASH_MAX_IMAGE_BYTES = parsePositiveInt(process.env.BLURHASH_MAX_IMAGE_BYTES, 10 * 1024 * 1024);
 const MEMORY_CACHE_TTL_MS = BLURHASH_CACHE_TTL_SECONDS * 1000;
 
-const blurhashMemoryCache = new Map<string, { hash: string; expiresAt: number }>();
+type BlurhashResult = { hash: string; width: number; height: number };
+
+const blurhashMemoryCache = new Map<string, { hash: string; width: number; height: number; expiresAt: number }>();
 const blurhashDataUrlMemoryCache = new Map<string, string>();
 
 function parsePositiveInt(raw: string | undefined, fallback: number) {
@@ -164,7 +166,35 @@ async function fetchImageBuffer(sourceUrl: string) {
   return Buffer.from(arrayBuffer);
 }
 
-async function generateBlurhash(sourceUrl: string) {
+function normalizeBlurhashDimensions(width: number, height: number) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { width: BLURHASH_IMAGE_SIZE, height: BLURHASH_IMAGE_SIZE };
+  }
+
+  return { width, height };
+}
+
+function resolveBlurhashOutputSize(width: number, height: number) {
+  const normalized = normalizeBlurhashDimensions(width, height);
+  const maxSize = BLURHASH_DATA_URL_SIZE;
+  if (normalized.width === normalized.height) {
+    return { width: maxSize, height: maxSize };
+  }
+
+  if (normalized.width > normalized.height) {
+    return {
+      width: maxSize,
+      height: Math.max(1, Math.round((maxSize * normalized.height) / normalized.width)),
+    };
+  }
+
+  return {
+    width: Math.max(1, Math.round((maxSize * normalized.width) / normalized.height)),
+    height: maxSize,
+  };
+}
+
+async function generateBlurhash(sourceUrl: string): Promise<BlurhashResult> {
   const imageBuffer = await fetchImageBuffer(sourceUrl);
   const { data, info } = await sharp(imageBuffer, {
     failOn: "none",
@@ -185,50 +215,81 @@ async function generateBlurhash(sourceUrl: string) {
     throw new Error("Invalid image dimensions");
   }
 
-  return encode(new Uint8ClampedArray(data), Math.floor(width), Math.floor(height), BLURHASH_COMPONENT_X, BLURHASH_COMPONENT_Y);
+  const hash = encode(
+    new Uint8ClampedArray(data),
+    Math.floor(width),
+    Math.floor(height),
+    BLURHASH_COMPONENT_X,
+    BLURHASH_COMPONENT_Y,
+  );
+
+  return {
+    hash,
+    width: Math.floor(width),
+    height: Math.floor(height),
+  };
 }
 
-export async function getBlurhashForImage(sourceUrl: string) {
+export async function getBlurhashForImage(sourceUrl: string): Promise<BlurhashResult> {
   const cacheKey = makeCacheKey(sourceUrl);
   const now = Date.now();
 
   const memory = blurhashMemoryCache.get(cacheKey);
   if (memory && memory.expiresAt > now) {
-    return memory.hash;
+    return {
+      hash: memory.hash,
+      width: memory.width,
+      height: memory.height,
+    };
   }
 
-  const cached = await getRedisJson<{ hash?: string }>(cacheKey);
+  const cached = await getRedisJson<{ hash?: string; width?: number; height?: number }>(cacheKey);
   if (cached?.hash && cached.hash.trim()) {
     const hash = cached.hash.trim();
+    const normalized = normalizeBlurhashDimensions(Number(cached.width), Number(cached.height));
     // Ensure existing TTL-based keys are gradually migrated to persistent keys.
-    await setRedisJsonPersistent(cacheKey, { hash });
+    await setRedisJsonPersistent(cacheKey, { hash, ...normalized });
     blurhashMemoryCache.set(cacheKey, {
       hash,
+      width: normalized.width,
+      height: normalized.height,
       expiresAt: now + MEMORY_CACHE_TTL_MS,
     });
-    return hash;
+    return {
+      hash,
+      width: normalized.width,
+      height: normalized.height,
+    };
   }
 
-  const hash = await generateBlurhash(sourceUrl);
+  const result = await generateBlurhash(sourceUrl);
   blurhashMemoryCache.set(cacheKey, {
-    hash,
+    hash: result.hash,
+    width: result.width,
+    height: result.height,
     expiresAt: now + MEMORY_CACHE_TTL_MS,
   });
-  await setRedisJsonPersistent(cacheKey, { hash });
-  return hash;
+  await setRedisJsonPersistent(cacheKey, {
+    hash: result.hash,
+    width: result.width,
+    height: result.height,
+  });
+  return result;
 }
 
-async function resolveBlurhashDataUrl(hash: string) {
-  const cached = blurhashDataUrlMemoryCache.get(hash);
+async function resolveBlurhashDataUrl(hash: string, width: number, height: number) {
+  const output = resolveBlurhashOutputSize(width, height);
+  const cacheKey = `${hash}:${output.width}x${output.height}`;
+  const cached = blurhashDataUrlMemoryCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const pixels = decode(hash, BLURHASH_DATA_URL_SIZE, BLURHASH_DATA_URL_SIZE);
+  const pixels = decode(hash, output.width, output.height);
   const png = await sharp(Buffer.from(pixels), {
     raw: {
-      width: BLURHASH_DATA_URL_SIZE,
-      height: BLURHASH_DATA_URL_SIZE,
+      width: output.width,
+      height: output.height,
       channels: 4,
     },
   })
@@ -236,7 +297,7 @@ async function resolveBlurhashDataUrl(hash: string) {
     .toBuffer();
 
   const dataUrl = `data:image/png;base64,${png.toString("base64")}`;
-  blurhashDataUrlMemoryCache.set(hash, dataUrl);
+  blurhashDataUrlMemoryCache.set(cacheKey, dataUrl);
   return dataUrl;
 }
 
@@ -251,8 +312,8 @@ export async function getBlurhashDataUrlForSource(rawSource: string, origin: str
   }
 
   try {
-    const hash = await getBlurhashForImage(sourceUrl);
-    return await resolveBlurhashDataUrl(hash);
+    const { hash, width, height } = await getBlurhashForImage(sourceUrl);
+    return await resolveBlurhashDataUrl(hash, width, height);
   } catch {
     return "";
   }

@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const hash = await getBlurhashForImage(sourceUrl);
+    const { hash } = await getBlurhashForImage(sourceUrl);
     return toJson({
       ok: true,
       hash,
