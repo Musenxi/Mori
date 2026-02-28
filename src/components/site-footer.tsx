@@ -32,7 +32,7 @@ export function SiteFooter({ blogTitle }: SiteFooterProps) {
   const isPost = pathname.startsWith("/post/");
   const isHome = pathname === "/" || pathname.startsWith("/category") || pathname.startsWith("/column");
 
-  let alignClass = "mx-auto w-full max-w-[850px] px-5 md:px-[calc(50vw-425px)]";
+  let alignClass = "mx-auto w-full max-w-[850px] px-5 md:px-0";
   if (isPost) {
     alignClass =
       "w-full px-5 md:pl-[calc(50vw-425px)] min-[1080px]:max-[1439px]:pl-[calc(50vw-549px)] min-[1440px]:pl-[calc(50vw-445px)]";
