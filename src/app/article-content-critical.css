@@ -281,23 +281,24 @@ img.medium-zoom-image--opened {
 }
 
 .prose-article .mori-image-gallery.is-carousel .mori-image-caption {
-  display: flex;
+  position: relative;
+  display: block;
   width: 100%;
-  align-items: baseline;
-  justify-content: flex-start;
-  text-align: left;
-  gap: 12px;
-  padding: 0 4px;
+  text-align: center;
+  padding: 0;
 }
 
 .prose-article .mori-gallery-counter {
+  position: absolute;
+  left: 0;
+  top: 0;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
 }
 
-.prose-article .mori-caption-text {
-  flex: 1;
+.prose-article .mori-image-gallery.is-carousel .mori-caption-text {
+  display: inline-block;
+  padding: 0 40px;
 }
 
 .prose-article .mori-image-gallery.is-carousel .mori-markdown-image-link {
