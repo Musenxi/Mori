@@ -154,7 +154,7 @@ export function SiteHeader({ blogTitle, navItems }: SiteHeaderProps) {
       return;
     }
 
-    if (mobileOpen || window.innerWidth >= 1080) {
+    if (mobileOpen) {
       return;
     }
 
@@ -209,7 +209,12 @@ export function SiteHeader({ blogTitle, navItems }: SiteHeaderProps) {
 
   return (
     <>
-      <header className="hidden w-full items-center justify-between px-[60px] py-6 min-[1080px]:flex">
+      <header
+        className={cn(
+          "sticky top-0 z-30 hidden w-full items-center justify-between bg-transparent px-[60px] py-6 transition-transform duration-200 min-[1080px]:flex",
+          mobileHeaderVisible ? "translate-y-0" : "-translate-y-full"
+        )}
+      >
         <div className="flex items-center gap-3">
           <Link href="/" className="font-serif-cn text-[22px] tracking-[4px] text-primary transition-opacity hover:opacity-70">
             {blogTitle}
