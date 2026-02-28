@@ -286,7 +286,7 @@ async function buildItemXml(post: NormalizedPost, origin: string) {
   const description = buildPostDescription(post, renderedContent);
   const pubDate = new Date(post.created * 1000).toUTCString();
   const rawContent = (renderedContent ? absolutizeHtmlUrls(renderedContent, origin) : description).trim();
-  const content = `<p><em>本文阅读体验最佳的方式为网页端，请前往原文阅读：<a href="${escapeXml(link)}">${escapeXml(title)}</a></em></p>\n<hr>\n${rawContent}`;
+  const content = `<p><em>本文阅读体验最佳的方式为网页端，请前往原文阅读：<a href="${escapeXml(link)}">${escapeXml(link)}</a></em></p>\n<hr>\n${rawContent}`;
   const enclosure = buildEnclosureXml(post, content, origin);
   const categories = [post.categoryName, ...post.tags.map((tag) => tag.name)]
     .map((value) => value.trim())
