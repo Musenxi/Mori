@@ -225,7 +225,7 @@ export function SiteHeader({ blogTitle, navItems }: SiteHeaderProps) {
 
       <header
         className={cn(
-          "sticky top-0 z-30 w-full bg-bg/95 px-5 py-6 backdrop-blur-sm transition-transform duration-200 min-[1080px]:hidden",
+          "sticky top-0 z-30 w-full bg-bg px-5 py-6 transition-transform duration-200 min-[1080px]:hidden border-b border-border/40",
           mobileHeaderVisible || mobileOpen ? "translate-y-0" : "-translate-y-full",
         )}
       >
