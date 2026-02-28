@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createComment, getComments, TypechoClientError } from "@/lib/typecho-client";
+import {
+  createComment,
+  getComments,
+  getUserByUid,
+  TypechoClientError,
+} from "@/lib/typecho-client";
 import { limitCommentDepth, normalizeCommentTree } from "@/lib/typecho-normalize";
 
 interface CommentBody {
@@ -14,6 +19,8 @@ interface CommentBody {
 }
 
 const COMMENT_CACHE_SECONDS = 5;
+const OWNER_UID_FOR_RESERVED_NICKNAME = 1;
+const OWNER_NAME_CACHE_SECONDS = parsePositiveInt(process.env.TYPECHO_OWNER_REVALIDATE_SECONDS, 600);
 const READ_CACHE_CONTROL = `public, max-age=${COMMENT_CACHE_SECONDS}, stale-while-revalidate=${COMMENT_CACHE_SECONDS * 4}`;
 
 function toNoStoreJson(data: unknown, status = 200) {
@@ -47,9 +54,22 @@ function badRequest(message: string) {
   );
 }
 
-function parsePositiveInt(raw: string | null, fallback: number) {
+function parsePositiveInt(raw: string | null | undefined, fallback: number) {
   const parsed = Number.parseInt(raw ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function normalizeNickname(raw: string) {
+  return raw.trim().toLocaleLowerCase();
+}
+
+async function getReservedNickname() {
+  const owner = await getUserByUid(OWNER_UID_FOR_RESERVED_NICKNAME, OWNER_NAME_CACHE_SECONDS);
+  if (!owner || typeof owner.name !== "string") {
+    return "";
+  }
+
+  return owner.name.trim();
 }
 
 function normalizeClientIp(raw: string | null | undefined) {
@@ -208,6 +228,11 @@ export async function POST(request: NextRequest) {
 
   if (!text) {
     return badRequest("评论内容不能为空。");
+  }
+
+  const reservedNickname = await getReservedNickname();
+  if (reservedNickname && normalizeNickname(author) === normalizeNickname(reservedNickname)) {
+    return badRequest(`昵称“${reservedNickname}”为站点保留名称，请更换后再提交。`);
   }
 
   if (!slug && !Number.isFinite(cid)) {

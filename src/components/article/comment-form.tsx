@@ -14,7 +14,7 @@ interface CommentFormProps {
   slug: string;
   replyTarget?: ReplyTarget | null;
   onCancelReply?: () => void;
-  onSubmitted?: () => void | Promise<void>;
+  onSubmitted?: (payload: { status?: string; message: string }) => void | Promise<void>;
 }
 
 interface FormState {
@@ -53,6 +53,14 @@ function buildOwoTokenFromAssetPath(assetPath: string) {
   }
 
   return `::${group}:${stem}::`;
+}
+
+function buildSubmitSuccessMessage(status?: string) {
+  if (status?.toLowerCase() === "waiting") {
+    return "评论提交成功，待审核后展示。";
+  }
+
+  return "评论提交成功。";
 }
 
 const INITIAL_FORM: FormState = {
@@ -215,15 +223,28 @@ export function CommentForm({ slug, replyTarget = null, onCancelReply, onSubmitt
       const result = (await response.json()) as {
         ok: boolean;
         message?: string;
+        data?: {
+          status?: string;
+        };
       };
 
       if (!response.ok || !result.ok) {
         throw new Error(result.message || "评论提交失败，请稍后重试。");
       }
 
+      const successMessage = buildSubmitSuccessMessage(result.data?.status);
       setForm(INITIAL_FORM);
       setShowOwoPanel(false);
-      await onSubmitted?.();
+
+      if (onSubmitted) {
+        try {
+          await onSubmitted({ status: result.data?.status, message: successMessage });
+        } catch {
+          // The comment has already been submitted successfully. Keep success feedback.
+        }
+      } else {
+        setFeedback(successMessage);
+      }
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "评论提交失败，请稍后重试。");
     } finally {

@@ -89,7 +89,7 @@ export function CommentSection({
   const refreshComments = useCallback(
     async (
       page: number,
-      options?: { preserveExistingOnEmpty?: boolean; fresh?: boolean },
+      options?: { preserveExistingOnEmpty?: boolean; fresh?: boolean; keepFeedback?: boolean },
     ): Promise<{ ok: boolean; commentCount: number }> => {
       if (loadingPageRef.current) {
         return { ok: false, commentCount: currentCommentCountRef.current };
@@ -97,7 +97,9 @@ export function CommentSection({
 
       loadingPageRef.current = true;
       setLoadingPage(true);
-      setFeedback("");
+      if (!options?.keepFeedback) {
+        setFeedback("");
+      }
 
       try {
         const query = new URLSearchParams({
@@ -192,12 +194,15 @@ export function CommentSection({
       {!disableForm && !replyTarget ? (
         <CommentForm
           slug={slug}
-          onSubmitted={async () => {
+          onSubmitted={async (payload) => {
             setReplyTarget(null);
-            await refreshComments(1, { preserveExistingOnEmpty: true, fresh: true });
+            setFeedback(payload.message);
+            await refreshComments(1, { preserveExistingOnEmpty: true, fresh: true, keepFeedback: true });
           }}
         />
       ) : null}
+
+      {feedback ? <p className="mt-4 text-center font-sans text-sm text-secondary">{feedback}</p> : null}
 
       <CommentList
         comments={currentComments}
@@ -210,16 +215,15 @@ export function CommentSection({
               slug={slug}
               replyTarget={replyTarget}
               onCancelReply={() => setReplyTarget(null)}
-              onSubmitted={async () => {
+              onSubmitted={async (payload) => {
                 setReplyTarget(null);
-                await refreshComments(1, { preserveExistingOnEmpty: true, fresh: true });
+                setFeedback(payload.message);
+                await refreshComments(1, { preserveExistingOnEmpty: true, fresh: true, keepFeedback: true });
               }}
             />
           ) : null
         }
       />
-
-      {feedback ? <p className="mt-4 text-center font-sans text-sm text-secondary">{feedback}</p> : null}
 
       {currentPagination && currentPagination.pages > 1 ? (
         <nav className="mt-8 flex items-center justify-center gap-2" aria-label="评论分页">
