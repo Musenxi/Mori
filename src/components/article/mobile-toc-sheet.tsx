@@ -41,7 +41,7 @@ export function MobileTocSheet({ items }: MobileTocSheetProps) {
   return (
     <div
       className={cn(
-        "fixed inset-0 z-50 bg-black/40 transition-opacity md:hidden",
+        "fixed inset-0 z-50 bg-black/40 transition-opacity min-[1080px]:hidden",
         open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
       )}
       onClick={() => setOpen(false)}

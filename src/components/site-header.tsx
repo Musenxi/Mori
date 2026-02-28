@@ -154,7 +154,7 @@ export function SiteHeader({ blogTitle, navItems }: SiteHeaderProps) {
       return;
     }
 
-    if (mobileOpen || window.innerWidth >= 768) {
+    if (mobileOpen || window.innerWidth >= 1080) {
       return;
     }
 
@@ -209,7 +209,7 @@ export function SiteHeader({ blogTitle, navItems }: SiteHeaderProps) {
 
   return (
     <>
-      <header className="hidden w-full items-center justify-between px-[60px] py-6 md:flex">
+      <header className="hidden w-full items-center justify-between px-[60px] py-6 min-[1080px]:flex">
         <div className="flex items-center gap-3">
           <Link href="/" className="font-serif-cn text-[22px] tracking-[4px] text-primary transition-opacity hover:opacity-70">
             {blogTitle}
@@ -225,7 +225,7 @@ export function SiteHeader({ blogTitle, navItems }: SiteHeaderProps) {
 
       <header
         className={cn(
-          "sticky top-0 z-30 w-full bg-bg/95 px-5 py-6 backdrop-blur-sm transition-transform duration-200 md:hidden",
+          "sticky top-0 z-30 w-full bg-bg/95 px-5 py-6 backdrop-blur-sm transition-transform duration-200 min-[1080px]:hidden",
           mobileHeaderVisible || mobileOpen ? "translate-y-0" : "-translate-y-full",
         )}
       >
@@ -265,7 +265,7 @@ export function SiteHeader({ blogTitle, navItems }: SiteHeaderProps) {
 
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-bg transition-opacity duration-200 md:hidden",
+          "fixed inset-0 z-40 bg-bg transition-opacity duration-200 min-[1080px]:hidden",
           mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         )}
       >
