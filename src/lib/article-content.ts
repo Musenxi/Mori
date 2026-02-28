@@ -120,11 +120,12 @@ function buildMarkdownImageGallery(units: MarkdownImageUnit[]) {
 
   const layoutClass = count === 2 ? "is-dual" : "is-carousel";
   const items = units
-    .map((unit) => {
+    .map((unit, index) => {
       const normalized = normalizeMarkdownImageUnitHtml(unit.html);
       const caption = resolveMarkdownImageCaption(normalized);
       const captionHtml = caption ? `<figcaption class="mori-image-caption">${escapeHtmlText(caption)}</figcaption>` : "";
-      return `<figure class="mori-image-gallery-item">${normalized}${captionHtml}</figure>`;
+      const counterHtml = count > 2 ? `<div class="mori-gallery-counter">${index + 1} / ${count}</div>` : "";
+      return `<figure class="mori-image-gallery-item">${counterHtml}${normalized}${captionHtml}</figure>`;
     })
     .join("");
 
