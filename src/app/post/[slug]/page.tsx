@@ -103,7 +103,7 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
             />
           </div>
 
-          <section className="min-[1440px]:mx-auto min-[1440px]:grid min-[1440px]:max-w-[1440px] min-[1440px]:grid-cols-[180px_850px_200px] min-[1440px]:gap-x-[95px]">
+          <section className="min-[1280px]:max-[1439px]:mx-auto min-[1280px]:max-[1439px]:grid min-[1280px]:max-[1439px]:max-w-[1098px] min-[1280px]:max-[1439px]:grid-cols-[minmax(0,850px)_200px] min-[1280px]:max-[1439px]:gap-x-12 min-[1440px]:mx-auto min-[1440px]:grid min-[1440px]:max-w-[1440px] min-[1440px]:grid-cols-[180px_850px_200px] min-[1440px]:gap-x-[95px]">
             <aside
               data-side-nav-scroll-container
               className="mori-post-left-rail mori-post-rail-stagger mori-stagger-item group hidden min-[1440px]:sticky min-[1440px]:top-24 min-[1440px]:z-40 min-[1440px]:block min-[1440px]:w-[180px] min-[1440px]:max-h-[calc(100vh-7rem)] min-[1440px]:self-start min-[1440px]:justify-self-end min-[1440px]:overflow-y-auto min-[1440px]:pr-1"
@@ -152,7 +152,7 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
             </div>
 
             <aside
-              className="mori-post-right-rail mori-post-rail-stagger mori-stagger-item hidden min-[1440px]:sticky min-[1440px]:top-24 min-[1440px]:block min-[1440px]:w-[200px] min-[1440px]:max-h-[calc(100vh-7rem)] min-[1440px]:self-start min-[1440px]:overflow-y-auto min-[1440px]:pr-1"
+              className="mori-post-right-rail mori-post-rail-stagger mori-stagger-item hidden xl:sticky xl:top-24 xl:block xl:w-[200px] xl:max-h-[calc(100vh-7rem)] xl:self-start xl:overflow-y-auto xl:pr-1"
               style={{ animationDelay: "170ms" }}
             >
               <TableOfContents items={tocItems} />
