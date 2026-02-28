@@ -404,6 +404,11 @@ img.medium-zoom-image--opened {
 
 @media (max-width: 767px) {
 
+  .prose-article img,
+  .prose-article .mori-image-gallery-item img[data-mori-markdown-image="1"] {
+    border-radius: 0 !important;
+  }
+
   .prose-article>img[data-mori-markdown-image="1"],
   .prose-article p>img[data-mori-markdown-image="1"]:only-child {
     width: 80% !important;
