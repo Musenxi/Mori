@@ -354,7 +354,9 @@ export async function GET(request: NextRequest) {
     const origin = resolveOrigin(request);
     const title = normalizeText(settings.title, "夜庭記");
     const description = normalizeText(settings.description, "静观其变，慢写人间。");
-    const posts = homeData.allPosts.slice(0, FEED_LIMIT);
+    const posts = homeData.allPosts
+      .filter((post) => new Date(post.created * 1000).getFullYear() >= 2026)
+      .slice(0, FEED_LIMIT);
 
     const xml = await buildFeedXml(posts, {
       title,
