@@ -1169,6 +1169,28 @@
   border-radius: 6px;
 }
 
+.prose-article img[data-mori-markdown-image="1"] {
+  cursor: zoom-in;
+}
+
+img.medium-zoom-image,
+img.medium-zoom-image--opened {
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+img.medium-zoom-image--opened {
+  cursor: zoom-out;
+  object-fit: contain !important;
+  object-position: center !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.medium-zoom-overlay {
+  will-change: opacity;
+}
+
 .prose-article > img[data-mori-markdown-image="1"] {
   margin-top: 40px;
   margin-bottom: 40px;

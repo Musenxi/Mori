@@ -23,6 +23,7 @@ type ExcalidrawProps = {
   excalidrawAPI?: (api: ExcalidrawAPI) => void;
 };
 type ExcalidrawComponentType = ComponentType<ExcalidrawProps>;
+type MediumZoomInstance = import("medium-zoom").Zoom;
 
 let excalidrawComponentPromise: Promise<ExcalidrawComponentType> | null = null;
 const EXCALIDRAW_PORTAL_SELECTOR = ".excalidraw-modal-container";
@@ -40,6 +41,7 @@ const BLURHASH_PLACEHOLDER_OPACITY = "1";
 const IMAGE_FADE_DURATION_MS = 680;
 const DEFERRED_IMAGE_FADE_START_OPACITY = "0.55";
 const DEFERRED_IMAGE_PRELOAD_ROOT_MARGIN = "100% 100% 100% 100%";
+const ZOOMABLE_MARKDOWN_IMAGE_SELECTOR = 'img[data-mori-markdown-image="1"]';
 const SINGLE_IMAGE_HEIGHT_SELECTOR = [
   '.prose-article > img[data-mori-markdown-image="1"]',
   '.prose-article > .mori-markdown-image-link > img[data-mori-markdown-image="1"]',
@@ -446,10 +448,60 @@ export function MarkdownRuntime() {
     const excalidrawRoots = new Map<HTMLElement, Root>();
     const excalidrawHostCleanups = new Map<HTMLElement, () => void>();
     const pendingRootUnmounts = new Set<Root>();
+    let imageZoom: MediumZoomInstance | null = null;
+    let setupImageZoomJob: Promise<void> | null = null;
+    const handleImageZoomOpen = (event: Event) => {
+      const target = event.target as HTMLImageElement | null;
+      if (!target) {
+        return;
+      }
+
+      target.style.opacity = "1";
+      target.style.removeProperty("transition");
+    };
     let disposed = false;
     let runtimeStarted = false;
     let startupTimer = 0;
     let pendingLoadListener: (() => void) | null = null;
+    const refreshImageZoomTargets = () => {
+      if (!imageZoom) {
+        return;
+      }
+
+      const targets = Array.from(
+        document.querySelectorAll<HTMLImageElement>(ZOOMABLE_MARKDOWN_IMAGE_SELECTOR),
+      ).filter((image) => !image.hasAttribute("data-nimg"));
+
+      imageZoom.detach();
+      imageZoom.attach(targets);
+    };
+    const setupImageZoom = () => {
+      if (imageZoom || setupImageZoomJob) {
+        return;
+      }
+
+      setupImageZoomJob = import("medium-zoom")
+        .then((module) => {
+          if (disposed || imageZoom) {
+            return;
+          }
+
+          imageZoom = module.default({
+            background: "rgba(0, 0, 0, 0.9)",
+            margin: 24,
+            scrollOffset: 0,
+          });
+          imageZoom.on("open", handleImageZoomOpen);
+
+          refreshImageZoomTargets();
+        })
+        .catch(() => {
+          // Ignore zoom setup failures to avoid blocking runtime features.
+        })
+        .finally(() => {
+          setupImageZoomJob = null;
+        });
+    };
     const activateDeferredImageSource = (image: HTMLImageElement) => {
       const deferredSrc = image.getAttribute("data-origin-src")?.trim();
       if (!deferredSrc) {
@@ -529,6 +581,14 @@ export function MarkdownRuntime() {
         }
         if (!image.getAttribute("decoding")) {
           image.setAttribute("decoding", "async");
+        }
+
+        const currentSrc = image.getAttribute("src")?.trim() || "";
+        const zoomSrc = image.getAttribute("data-origin-src")?.trim() || currentSrc;
+        if (zoomSrc && zoomSrc !== currentSrc) {
+          image.setAttribute("data-zoom-src", zoomSrc);
+        } else {
+          image.removeAttribute("data-zoom-src");
         }
 
         if (image.getAttribute("data-origin-src")?.trim()) {
@@ -717,6 +777,8 @@ export function MarkdownRuntime() {
           handleImageError();
         }
       });
+
+      refreshImageZoomTargets();
     };
 
     const scheduleRootUnmount = (root: Root) => {
@@ -845,6 +907,7 @@ export function MarkdownRuntime() {
       mountAllExcalidraw();
       shuffleFriendLinks();
       enhanceImages();
+      refreshImageZoomTargets();
     });
 
     const startRuntime = () => {
@@ -854,6 +917,7 @@ export function MarkdownRuntime() {
       runtimeStarted = true;
       mountAllExcalidraw();
       shuffleFriendLinks();
+      setupImageZoom();
       enhanceImages();
       observer.observe(document.body, {
         childList: true,
@@ -1115,6 +1179,12 @@ export function MarkdownRuntime() {
         pendingLoadListener = null;
       }
       deferredImageObserver?.disconnect();
+      if (imageZoom) {
+        imageZoom.off("open", handleImageZoomOpen);
+        void imageZoom.close();
+        imageZoom.detach();
+        imageZoom = null;
+      }
       observer.disconnect();
       excalidrawRoots.forEach((root) => {
         scheduleRootUnmount(root);
