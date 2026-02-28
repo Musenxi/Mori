@@ -52,11 +52,11 @@ export function SiteFooter({ blogTitle }: SiteFooterProps) {
           <Link href="/" className="transition-opacity hover:opacity-70">
             {blogTitle}
           </Link>
-          <span className="mx-1.5 opacity-50">|</span>
+          <span className="mx-2 inline-block -translate-y-px text-[14px] font-light opacity-40">|</span>
           <Link href="/feed" className="transition-opacity hover:opacity-70" prefetch={false}>
             RSS
           </Link>
-          <span className="mx-1.5 opacity-50">|</span>
+          <span className="mx-2 inline-block -translate-y-px text-[14px] font-light opacity-40">|</span>
           <a
             href="https://www.travellings.cn/go"
             target="_blank"
@@ -76,7 +76,7 @@ export function SiteFooter({ blogTitle }: SiteFooterProps) {
           >
             Mori
           </a>
-          <span className="mx-1.5 opacity-50">|</span>
+          <span className="mx-2 inline-block -translate-y-px text-[14px] font-light opacity-40">|</span>
           <SiteFooterPresence />
         </p>
       </div>
