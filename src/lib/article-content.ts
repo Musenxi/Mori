@@ -123,9 +123,13 @@ function buildMarkdownImageGallery(units: MarkdownImageUnit[]) {
     .map((unit, index) => {
       const normalized = normalizeMarkdownImageUnitHtml(unit.html);
       const caption = resolveMarkdownImageCaption(normalized);
-      const captionHtml = caption ? `<figcaption class="mori-image-caption">${escapeHtmlText(caption)}</figcaption>` : "";
-      const counterHtml = count > 2 ? `<div class="mori-gallery-counter">${index + 1} / ${count}</div>` : "";
-      return `<figure class="mori-image-gallery-item">${counterHtml}${normalized}${captionHtml}</figure>`;
+      const counterText = count > 2 ? `${index + 1} / ${count}` : "";
+      const captionInner = [
+        counterText ? `<span class="mori-gallery-counter">${counterText}</span>` : "",
+        caption ? `<span class="mori-caption-text">${escapeHtmlText(caption)}</span>` : ""
+      ].filter(Boolean).join("");
+      const captionHtml = captionInner ? `<figcaption class="mori-image-caption">${captionInner}</figcaption>` : "";
+      return `<figure class="mori-image-gallery-item">${normalized}${captionHtml}</figure>`;
     })
     .join("");
 
