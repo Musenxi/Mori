@@ -12,6 +12,7 @@ const BLURHASH_COMPONENT_X = 4;
 const BLURHASH_COMPONENT_Y = 3;
 const BLURHASH_IMAGE_SIZE = 48;
 const BLURHASH_DATA_URL_SIZE = 32;
+const BLURHASH_CACHE_SCHEMA_VERSION = 2;
 const BLURHASH_CACHE_TTL_SECONDS = parsePositiveInt(
   process.env.BLURHASH_CACHE_TTL_SECONDS,
   60 * 60 * 24 * 7,
@@ -21,8 +22,10 @@ const BLURHASH_MAX_IMAGE_BYTES = parsePositiveInt(process.env.BLURHASH_MAX_IMAGE
 const MEMORY_CACHE_TTL_MS = BLURHASH_CACHE_TTL_SECONDS * 1000;
 
 type BlurhashResult = { hash: string; width: number; height: number };
+type BlurhashCacheEntry = { hash: string; width: number; height: number; schemaVersion: number };
+type BlurhashMemoryEntry = BlurhashCacheEntry & { expiresAt: number };
 
-const blurhashMemoryCache = new Map<string, { hash: string; width: number; height: number; expiresAt: number }>();
+const blurhashMemoryCache = new Map<string, BlurhashMemoryEntry>();
 const blurhashDataUrlMemoryCache = new Map<string, string>();
 
 function parsePositiveInt(raw: string | undefined, fallback: number) {
@@ -174,6 +177,47 @@ function normalizeBlurhashDimensions(width: number, height: number) {
   return { width, height };
 }
 
+function hasValidDimensions(width: number, height: number) {
+  return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0;
+}
+
+function normalizeCacheSchemaVersion(value: unknown) {
+  const schemaVersion = Number(value);
+  if (!Number.isFinite(schemaVersion) || schemaVersion <= 0) {
+    return 0;
+  }
+  return Math.floor(schemaVersion);
+}
+
+function isLikelyLegacyFallbackDimensions(width: number, height: number) {
+  return hasValidDimensions(width, height) && width === height && width <= BLURHASH_IMAGE_SIZE;
+}
+
+function shouldRefreshCachedDimensions(width: number, height: number, schemaVersion: number) {
+  if (!hasValidDimensions(width, height)) {
+    return true;
+  }
+
+  if (schemaVersion >= BLURHASH_CACHE_SCHEMA_VERSION) {
+    return false;
+  }
+
+  return isLikelyLegacyFallbackDimensions(width, height);
+}
+
+async function resolveImageDimensions(sourceUrl: string) {
+  try {
+    const imageBuffer = await fetchImageBuffer(sourceUrl);
+    const metadata = await sharp(imageBuffer, { failOn: "none" })
+      .rotate()
+      .metadata();
+    const normalized = normalizeBlurhashDimensions(Number(metadata.width), Number(metadata.height));
+    return normalized;
+  } catch {
+    return normalizeBlurhashDimensions(BLURHASH_IMAGE_SIZE, BLURHASH_IMAGE_SIZE);
+  }
+}
+
 function resolveBlurhashOutputSize(width: number, height: number) {
   const normalized = normalizeBlurhashDimensions(width, height);
   const maxSize = BLURHASH_DATA_URL_SIZE;
@@ -196,11 +240,13 @@ function resolveBlurhashOutputSize(width: number, height: number) {
 
 async function generateBlurhash(sourceUrl: string): Promise<BlurhashResult> {
   const imageBuffer = await fetchImageBuffer(sourceUrl);
-  const { data, info } = await sharp(imageBuffer, {
+  const imageProcessor = sharp(imageBuffer, {
     failOn: "none",
     limitInputPixels: 40_000_000,
-  })
-    .rotate()
+  }).rotate();
+  const metadata = await imageProcessor.metadata();
+  const sourceDimensions = normalizeBlurhashDimensions(Number(metadata.width), Number(metadata.height));
+  const { data, info } = await imageProcessor
     .resize(BLURHASH_IMAGE_SIZE, BLURHASH_IMAGE_SIZE, {
       fit: "inside",
       withoutEnlargement: true,
@@ -225,8 +271,8 @@ async function generateBlurhash(sourceUrl: string): Promise<BlurhashResult> {
 
   return {
     hash,
-    width: Math.floor(width),
-    height: Math.floor(height),
+    width: Math.floor(sourceDimensions.width),
+    height: Math.floor(sourceDimensions.height),
   };
 }
 
@@ -236,45 +282,100 @@ export async function getBlurhashForImage(sourceUrl: string): Promise<BlurhashRe
 
   const memory = blurhashMemoryCache.get(cacheKey);
   if (memory && memory.expiresAt > now) {
+    const memoryWidth = Number(memory.width);
+    const memoryHeight = Number(memory.height);
+    const memorySchemaVersion = normalizeCacheSchemaVersion(memory.schemaVersion);
+    const refreshDimensions = shouldRefreshCachedDimensions(memoryWidth, memoryHeight, memorySchemaVersion);
+    const upgradeSchema = memorySchemaVersion < BLURHASH_CACHE_SCHEMA_VERSION;
+
+    let normalized = normalizeBlurhashDimensions(memoryWidth, memoryHeight);
+    if (refreshDimensions) {
+      normalized = await resolveImageDimensions(sourceUrl);
+    }
+
+    if (refreshDimensions || upgradeSchema) {
+      const entry: BlurhashMemoryEntry = {
+        hash: memory.hash,
+        width: normalized.width,
+        height: normalized.height,
+        schemaVersion: BLURHASH_CACHE_SCHEMA_VERSION,
+        expiresAt: now + MEMORY_CACHE_TTL_MS,
+      };
+      blurhashMemoryCache.set(cacheKey, entry);
+      await setRedisJsonPersistent(cacheKey, {
+        hash: entry.hash,
+        width: entry.width,
+        height: entry.height,
+        schemaVersion: entry.schemaVersion,
+      });
+      return {
+        hash: entry.hash,
+        width: entry.width,
+        height: entry.height,
+      };
+    }
+
     return {
       hash: memory.hash,
-      width: memory.width,
-      height: memory.height,
+      width: normalized.width,
+      height: normalized.height,
     };
   }
 
-  const cached = await getRedisJson<{ hash?: string; width?: number; height?: number }>(cacheKey);
+  const cached = await getRedisJson<{ hash?: string; width?: number; height?: number; schemaVersion?: number }>(cacheKey);
   if (cached?.hash && cached.hash.trim()) {
     const hash = cached.hash.trim();
-    const normalized = normalizeBlurhashDimensions(Number(cached.width), Number(cached.height));
-    // Ensure existing TTL-based keys are gradually migrated to persistent keys.
-    await setRedisJsonPersistent(cacheKey, { hash, ...normalized });
-    blurhashMemoryCache.set(cacheKey, {
+    const cachedWidth = Number(cached.width);
+    const cachedHeight = Number(cached.height);
+    const cachedSchemaVersion = normalizeCacheSchemaVersion(cached.schemaVersion);
+    const refreshDimensions = shouldRefreshCachedDimensions(cachedWidth, cachedHeight, cachedSchemaVersion);
+    let normalized = normalizeBlurhashDimensions(cachedWidth, cachedHeight);
+    if (refreshDimensions) {
+      normalized = await resolveImageDimensions(sourceUrl);
+    }
+
+    const upgradedEntry: BlurhashMemoryEntry = {
       hash,
       width: normalized.width,
       height: normalized.height,
+      schemaVersion: BLURHASH_CACHE_SCHEMA_VERSION,
       expiresAt: now + MEMORY_CACHE_TTL_MS,
+    };
+    // Ensure existing TTL-based keys are gradually migrated to persistent keys.
+    await setRedisJsonPersistent(cacheKey, {
+      hash: upgradedEntry.hash,
+      width: upgradedEntry.width,
+      height: upgradedEntry.height,
+      schemaVersion: upgradedEntry.schemaVersion,
     });
+    blurhashMemoryCache.set(cacheKey, upgradedEntry);
     return {
-      hash,
-      width: normalized.width,
-      height: normalized.height,
+      hash: upgradedEntry.hash,
+      width: upgradedEntry.width,
+      height: upgradedEntry.height,
     };
   }
 
   const result = await generateBlurhash(sourceUrl);
-  blurhashMemoryCache.set(cacheKey, {
+  const generatedEntry: BlurhashMemoryEntry = {
     hash: result.hash,
     width: result.width,
     height: result.height,
+    schemaVersion: BLURHASH_CACHE_SCHEMA_VERSION,
     expiresAt: now + MEMORY_CACHE_TTL_MS,
-  });
+  };
+  blurhashMemoryCache.set(cacheKey, generatedEntry);
   await setRedisJsonPersistent(cacheKey, {
-    hash: result.hash,
-    width: result.width,
-    height: result.height,
+    hash: generatedEntry.hash,
+    width: generatedEntry.width,
+    height: generatedEntry.height,
+    schemaVersion: generatedEntry.schemaVersion,
   });
-  return result;
+  return {
+    hash: generatedEntry.hash,
+    width: generatedEntry.width,
+    height: generatedEntry.height,
+  };
 }
 
 async function resolveBlurhashDataUrl(hash: string, width: number, height: number) {

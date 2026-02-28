@@ -37,7 +37,8 @@ let defaultBlurhashDataUrl = "";
 const blurhashDataUrlByHash = new Map<string, string>();
 const imagePlaceholderDataUrlBySource = new Map<string, string>();
 const imagePlaceholderPendingBySource = new Map<string, Promise<string>>();
-const BLURHASH_DATA_URL_STORAGE_PREFIX = "mori:blurhash:data-url:";
+const BLURHASH_DATA_URL_STORAGE_PREFIX = "mori:blurhash:data-url:v2:";
+const BLURHASH_PLACEHOLDER_VERSION = "2";
 const BLURHASH_PLACEHOLDER_OPACITY = "1";
 const IMAGE_FADE_DURATION_MS = 680;
 const IMAGE_REVEAL_DURATION_MS = 900;
@@ -105,20 +106,46 @@ function applySingleImageHeightMode(image: HTMLImageElement) {
   image.classList.toggle("mori-image-auto-height", shouldUseAutoHeightForSingleImage(image));
 }
 
-function decodeHashToDataUrl(hash: string) {
+function resolveBlurhashDecodeSize(width: number, height: number) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { width: 32, height: 32 };
+  }
+
+  const maxSize = 32;
+  if (width === height) {
+    return { width: maxSize, height: maxSize };
+  }
+
+  if (width > height) {
+    return {
+      width: maxSize,
+      height: Math.max(1, Math.round((maxSize * height) / width)),
+    };
+  }
+
+  return {
+    width: Math.max(1, Math.round((maxSize * width) / height)),
+    height: maxSize,
+  };
+}
+
+function getBlurhashDataUrlCacheKey(hash: string, width: number, height: number) {
+  return `${hash}:${width}x${height}`;
+}
+
+function decodeHashToDataUrl(hash: string, width?: number, height?: number) {
   try {
-    const width = 32;
-    const height = 32;
-    const pixels = decodeBlurhash(hash, width, height);
+    const output = resolveBlurhashDecodeSize(Number(width), Number(height));
+    const pixels = decodeBlurhash(hash, output.width, output.height);
     const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = output.width;
+    canvas.height = output.height;
     const context = canvas.getContext("2d");
     if (!context) {
       return "";
     }
 
-    const imageData = context.createImageData(width, height);
+    const imageData = context.createImageData(output.width, output.height);
     imageData.data.set(pixels);
     context.putImageData(imageData, 0, 0);
     return canvas.toDataURL("image/png");
@@ -134,6 +161,24 @@ function getDefaultBlurhashDataUrl() {
 
   defaultBlurhashDataUrl = decodeHashToDataUrl(DEFAULT_IMAGE_BLURHASH);
   return defaultBlurhashDataUrl;
+}
+
+function ensureBlurhashImageVersion(image: HTMLImageElement) {
+  const rawSrc = image.getAttribute("src")?.trim();
+  if (!rawSrc || !rawSrc.includes("/api/blurhash/image")) {
+    return;
+  }
+
+  try {
+    const url = new URL(rawSrc, window.location.origin);
+    if (url.searchParams.get("v") === BLURHASH_PLACEHOLDER_VERSION) {
+      return;
+    }
+    url.searchParams.set("v", BLURHASH_PLACEHOLDER_VERSION);
+    image.setAttribute("src", url.toString());
+  } catch {
+    // Ignore malformed urls.
+  }
 }
 
 function normalizeImageSource(input: string) {
@@ -200,15 +245,19 @@ function getCachedImagePlaceholderDataUrl(inputSource: string) {
 
 function parseBlurhashPayload(payload: unknown) {
   if (!payload || typeof payload !== "object") {
-    return "";
+    return null;
   }
 
-  const parsed = payload as { ok?: unknown; hash?: unknown };
+  const parsed = payload as { ok?: unknown; hash?: unknown; width?: unknown; height?: unknown };
   if (!parsed.ok || typeof parsed.hash !== "string") {
-    return "";
+    return null;
   }
 
-  return parsed.hash.trim();
+  return {
+    hash: parsed.hash.trim(),
+    width: Number(parsed.width),
+    height: Number(parsed.height),
+  };
 }
 
 async function resolvePerImagePlaceholderDataUrl(inputSource: string) {
@@ -243,22 +292,32 @@ async function resolvePerImagePlaceholderDataUrl(inputSource: string) {
       }
 
       const payload = (await response.json()) as unknown;
-      const hash = parseBlurhashPayload(payload);
-      if (!hash) {
+      const blurhashPayload = parseBlurhashPayload(payload);
+      if (!blurhashPayload?.hash) {
         return "";
       }
 
-      const cachedDataUrl = blurhashDataUrlByHash.get(hash);
+      const outputSize = resolveBlurhashDecodeSize(blurhashPayload.width, blurhashPayload.height);
+      const cacheKey = getBlurhashDataUrlCacheKey(
+        blurhashPayload.hash,
+        outputSize.width,
+        outputSize.height,
+      );
+      const cachedDataUrl = blurhashDataUrlByHash.get(cacheKey);
       if (cachedDataUrl) {
         return cachedDataUrl;
       }
 
-      const dataUrl = decodeHashToDataUrl(hash);
+      const dataUrl = decodeHashToDataUrl(
+        blurhashPayload.hash,
+        blurhashPayload.width,
+        blurhashPayload.height,
+      );
       if (!dataUrl) {
         return "";
       }
 
-      blurhashDataUrlByHash.set(hash, dataUrl);
+      blurhashDataUrlByHash.set(cacheKey, dataUrl);
       return dataUrl;
     } catch {
       return "";
@@ -576,6 +635,11 @@ export function MarkdownRuntime() {
           return;
         }
 
+        const originSrc = image.getAttribute("data-origin-src")?.trim() || "";
+        if (originSrc) {
+          ensureBlurhashImageVersion(image);
+        }
+
         if (image.dataset.moriSingleHeightBound !== "1") {
           image.dataset.moriSingleHeightBound = "1";
           image.addEventListener("load", () => {
@@ -663,7 +727,7 @@ export function MarkdownRuntime() {
             image.style.removeProperty("background-color");
             if (dataUrl) {
               image.style.backgroundImage = `url("${dataUrl}")`;
-              image.style.backgroundSize = "cover";
+              image.style.backgroundSize = "contain";
               image.style.backgroundPosition = "center";
               image.style.backgroundRepeat = "no-repeat";
             } else {
@@ -799,7 +863,7 @@ export function MarkdownRuntime() {
                 return;
               }
               image.style.backgroundImage = `url("${dataUrl}")`;
-              image.style.backgroundSize = "cover";
+              image.style.backgroundSize = "contain";
               image.style.backgroundPosition = "center";
               image.style.backgroundRepeat = "no-repeat";
             });

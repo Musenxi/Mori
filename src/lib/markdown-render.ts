@@ -120,8 +120,10 @@ function escapeAttributeValue(value: string) {
     .replace(/>/g, "&gt;");
 }
 
+const MARKDOWN_IMAGE_PLACEHOLDER_VERSION = "2";
+
 function buildDeferredMarkdownImagePlaceholderSrc(target: string) {
-  return `/api/blurhash/image?src=${encodeURIComponent(target)}`;
+  return `/api/blurhash/image?src=${encodeURIComponent(target)}&v=${MARKDOWN_IMAGE_PLACEHOLDER_VERSION}`;
 }
 
 function escapeHtmlText(value: string) {

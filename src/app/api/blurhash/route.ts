@@ -64,10 +64,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { hash } = await getBlurhashForImage(sourceUrl);
+    const { hash, width, height } = await getBlurhashForImage(sourceUrl);
     return toJson({
       ok: true,
       hash,
+      width,
+      height,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Blurhash generation failed";
