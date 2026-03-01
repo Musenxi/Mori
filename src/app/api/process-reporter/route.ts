@@ -71,15 +71,18 @@ function toJson(data: ProcessReporterStatusResponse | { ok: boolean; message: st
 }
 
 function resolveBroadcastOrigin(request: NextRequest) {
-  try {
-    const originUrl = new URL(request.nextUrl.origin);
-    if (originUrl.hostname === "0.0.0.0" || originUrl.hostname === "::") {
-      originUrl.hostname = "127.0.0.1";
-    }
-    return originUrl.origin;
-  } catch {
-    return "http://127.0.0.1:3000";
+  const override = process.env.SOCKET_BRIDGE_ORIGIN?.trim();
+  if (override) {
+    return override;
   }
+
+  const port = Number.parseInt(process.env.PORT || "3000", 10);
+  const host = process.env.HOST?.trim() || "";
+  if (host && host !== "0.0.0.0" && host !== "::") {
+    return `http://${host}:${port}`;
+  }
+
+  return `http://127.0.0.1:${port}`;
 }
 
 function getSocketInternalToken() {

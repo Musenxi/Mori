@@ -13,6 +13,7 @@ import {
 const PROCESS_REPORTER_UPDATED_EVENT = "process-reporter:updated";
 const PROCESS_REPORTER_WATCH_EVENT = "process-reporter:watch";
 const PROCESS_REPORTER_UNWATCH_EVENT = "process-reporter:unwatch";
+const PROCESS_REPORTER_POLL_INTERVAL_MS = 10000;
 
 type ViewportMode = "any" | "desktop" | "mobile";
 
@@ -130,19 +131,21 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
       }, delay);
     };
 
-    const pullSnapshot = async () => {
+    type PullResult = "enabled" | "disabled" | "unknown";
+
+    const pullSnapshot = async (): Promise<PullResult> => {
       try {
         const response = await fetch("/api/process-reporter", {
           method: "GET",
           cache: "no-store",
         });
         if (!response.ok) {
-          return false;
+          return "unknown";
         }
 
         const payload = (await response.json()) as ProcessReporterStatusResponse;
         if (!payload.ok) {
-          return false;
+          return "unknown";
         }
 
         const nextOwnerName =
@@ -154,15 +157,15 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
         if (!payload.enabled) {
           setFeatureEnabled(false);
           applySnapshot(null);
-          return false;
+          return "disabled";
         }
 
         setFeatureEnabled(true);
         applySnapshot(payload.data);
-        return true;
+        return "enabled";
       } catch {
         // Keep current state on pull failure.
-        return false;
+        return "unknown";
       }
     };
 
@@ -182,11 +185,17 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
           applySnapshot(payload);
         };
 
+        const handleConnect = () => {
+          socket.emit(PROCESS_REPORTER_WATCH_EVENT);
+        };
+
         socket.on(PROCESS_REPORTER_UPDATED_EVENT, handleUpdated);
+        socket.on("connect", handleConnect);
         socket.emit(PROCESS_REPORTER_WATCH_EVENT);
 
         return () => {
           socket.off(PROCESS_REPORTER_UPDATED_EVENT, handleUpdated);
+          socket.off("connect", handleConnect);
         };
       } catch {
         return undefined;
@@ -194,18 +203,53 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
     };
 
     let cleanup: (() => void) | undefined;
-    void pullSnapshot().then((enabled) => {
+    let pollTimer = 0;
+    let pollInFlight = false;
+
+    const startPolling = () => {
+      if (pollTimer) {
+        return;
+      }
+      pollTimer = window.setInterval(() => {
+        if (pollInFlight) {
+          return;
+        }
+        pollInFlight = true;
+        void pullSnapshot().finally(() => {
+          pollInFlight = false;
+        });
+      }, PROCESS_REPORTER_POLL_INTERVAL_MS);
+    };
+
+    const stopPolling = () => {
+      if (!pollTimer) {
+        return;
+      }
+      window.clearInterval(pollTimer);
+      pollTimer = 0;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void pullSnapshot();
+      }
+    };
+
+    void pullSnapshot().then((result) => {
       if (disposed) {
         return;
       }
       setInitialized(true);
-      if (!enabled) {
+      if (result === "disabled") {
         return;
       }
 
       void setupRealtime().then((dispose) => {
         cleanup = dispose;
       });
+
+      startPolling();
+      document.addEventListener("visibilitychange", handleVisibilityChange);
     });
 
     return () => {
@@ -213,6 +257,8 @@ function SiteHeaderStatusBase({ viewport }: { viewport: ViewportMode }) {
       if (staleTimer) {
         window.clearTimeout(staleTimer);
       }
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       cleanup?.();
       socketRef?.emit(PROCESS_REPORTER_UNWATCH_EVENT);
     };

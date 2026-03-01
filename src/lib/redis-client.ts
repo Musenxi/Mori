@@ -52,6 +52,20 @@ function makePrefixedKey(key: string) {
   return `${REDIS_KEY_PREFIX}:${key}`;
 }
 
+function makePrefixedPattern(pattern: string) {
+  const trimmed = pattern.trim();
+  if (!trimmed) {
+    return makePrefixedKey("*");
+  }
+
+  const prefix = `${REDIS_KEY_PREFIX}:`;
+  if (trimmed.startsWith(prefix)) {
+    return trimmed;
+  }
+
+  return makePrefixedKey(trimmed);
+}
+
 function createRedis(): MoriRedisClient {
   const socket = {
     connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
@@ -199,5 +213,66 @@ export async function setRedisJsonPersistent(
     await client.set(makePrefixedKey(key), JSON.stringify(value));
   } catch (error) {
     handleRedisOperationError(error);
+  }
+}
+
+export async function deleteRedisByPattern(
+  pattern: string,
+  options: { maxKeys?: number; batchSize?: number; scanCount?: number } = {},
+): Promise<number> {
+  const client = await getRedisClient();
+  if (!client) {
+    return 0;
+  }
+
+  const match = makePrefixedPattern(pattern);
+  const maxKeysValue = Number.isFinite(options.maxKeys)
+    ? Math.max(0, Math.floor(options.maxKeys ?? 0))
+    : undefined;
+  const maxKeys = maxKeysValue && maxKeysValue > 0 ? maxKeysValue : Infinity;
+  const batchSize = Number.isFinite(options.batchSize)
+    ? Math.max(10, Math.floor(options.batchSize ?? 0))
+    : 200;
+  const scanCount = Number.isFinite(options.scanCount)
+    ? Math.max(10, Math.floor(options.scanCount ?? 0))
+    : 200;
+
+  let deleted = 0;
+  let processed = 0;
+  const batch: string[] = [];
+
+  try {
+    for await (const chunk of client.scanIterator({ MATCH: match, COUNT: scanCount })) {
+      const keys = Array.isArray(chunk) ? chunk : [chunk];
+
+      for (const key of keys) {
+        batch.push(key);
+        processed += 1;
+
+        if (batch.length >= batchSize) {
+          const removed = await client.del(batch);
+          deleted += typeof removed === "number" ? removed : 0;
+          batch.length = 0;
+        }
+
+        if (processed >= maxKeys) {
+          break;
+        }
+      }
+
+      if (processed >= maxKeys) {
+        break;
+      }
+    }
+
+    if (batch.length > 0) {
+      const removed = await client.del(batch);
+      deleted += typeof removed === "number" ? removed : 0;
+    }
+
+    return deleted;
+  } catch (error) {
+    handleRedisOperationError(error);
+    return deleted;
   }
 }

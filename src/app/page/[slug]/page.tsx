@@ -6,7 +6,7 @@ import { StaticPageContentFallback } from "@/components/page-loading-fallbacks";
 import { StaticPageContent } from "@/components/static-page-view";
 import { getSiteContext, getStaticPageDetailBySlug } from "@/lib/site-data";
 
-export const revalidate = 60;
+export const revalidate = 0;
 
 interface GenericPageProps {
   params: Promise<{

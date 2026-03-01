@@ -2,9 +2,9 @@ import { Suspense } from "react";
 
 import { CategoryPageClient } from "@/components/category-page-client";
 import { CategoryContentFallback } from "@/components/page-loading-fallbacks";
-import { getCategoryData, getSiteContext } from "@/lib/site-data";
+import { getCategoryPageData, getSiteContext } from "@/lib/site-data";
 
-export const revalidate = 60;
+export const revalidate = 86400;
 
 interface CategoryPageProps {
   searchParams: Promise<{
@@ -20,8 +20,12 @@ async function CategoryPageContent({
   configured: boolean;
 }) {
   const data = configured
-    ? await getCategoryData(activeSlug).catch(() => ({ categories: [], groups: [] }))
-    : { categories: [], groups: [] };
+    ? await getCategoryPageData(activeSlug).catch(() => ({
+      categories: [],
+      posts: [],
+      groups: [],
+    }))
+    : { categories: [], posts: [], groups: [] };
 
   return (
     <section className="flex flex-col gap-12 py-10 md:gap-[60px] md:px-[80px] md:py-[80px] md:pl-[clamp(20px,calc(40vw-280px),300px)]">
@@ -29,6 +33,7 @@ async function CategoryPageContent({
         initialCategories={data.categories}
         initialGroups={data.groups}
         initialActiveSlug={activeSlug}
+        posts={data.posts}
       />
     </section>
   );

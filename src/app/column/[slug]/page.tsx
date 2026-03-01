@@ -3,9 +3,9 @@ import { Suspense } from "react";
 
 import { ColumnDetailClient } from "@/components/column-detail-client";
 import { ColumnDetailContentFallback } from "@/components/page-loading-fallbacks";
-import { getColumnDetailData, getColumnsData, getSiteContext } from "@/lib/site-data";
+import { getColumnDetailPageData, getSiteContext } from "@/lib/site-data";
 
-export const revalidate = 60;
+export const revalidate = 86400;
 
 interface ColumnDetailPageProps {
   params: Promise<{
@@ -24,10 +24,7 @@ async function ColumnDetailContent({
     return null;
   }
 
-  const [data, columns] = await Promise.all([
-    getColumnDetailData(slug).catch(() => null),
-    getColumnsData().catch(() => []),
-  ]);
+  const data = await getColumnDetailPageData(slug, 86400).catch(() => null);
 
   if (!data) {
     notFound();
@@ -35,10 +32,11 @@ async function ColumnDetailContent({
 
   return (
     <ColumnDetailClient
-      columns={columns}
+      columns={data.columns}
       initialSlug={slug}
       initialColumn={data.column}
       initialGroups={data.groups}
+      posts={data.posts}
     />
   );
 }

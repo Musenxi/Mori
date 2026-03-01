@@ -1,179 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { CategoryFilter } from "@/components/category-filter";
 import { YearPostGroups } from "@/components/year-post-groups";
 import { ColumnInfo } from "@/lib/site-data";
-import { YearGroupedPosts } from "@/lib/typecho-types";
+import { NormalizedPost, YearGroupedPosts } from "@/lib/typecho-types";
 
 interface CategoryPageClientProps {
   initialCategories: ColumnInfo[];
   initialGroups: YearGroupedPosts[];
   initialActiveSlug: string | null;
+  posts: NormalizedPost[];
 }
 
-interface CategoryDataPayload {
-  categories: ColumnInfo[];
-  groups: YearGroupedPosts[];
+function normalizeCategorySlug(value: string | null | undefined) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-const ALL_KEY = "__all__";
-const SLOW_LOADING_DELAY_MS = 1400;
+function filterPostsBySlug(posts: NormalizedPost[], slug: string | null) {
+  const normalized = normalizeCategorySlug(slug);
+  if (!normalized) {
+    return posts;
+  }
+  return posts.filter(
+    (post) => normalizeCategorySlug(post.categorySlug) === normalized,
+  );
+}
 
-function toCacheKey(slug: string | null) {
-  return slug ?? ALL_KEY;
+function groupPostsByYear(posts: NormalizedPost[]): YearGroupedPosts[] {
+  const map = new Map<string, NormalizedPost[]>();
+
+  posts.forEach((post) => {
+    const year = `${new Date(post.created * 1000).getFullYear()}`;
+    const current = map.get(year) ?? [];
+    current.push(post);
+    map.set(year, current);
+  });
+
+  return [...map.entries()]
+    .sort((a, b) => Number(b[0]) - Number(a[0]))
+    .map(([year, yearPosts]) => ({
+      year,
+      posts: yearPosts.sort((a, b) => b.created - a.created),
+    }));
 }
 
 export function CategoryPageClient({
   initialCategories,
   initialGroups,
   initialActiveSlug,
+  posts,
 }: CategoryPageClientProps) {
-  const [categories, setCategories] = useState(initialCategories);
   const [groups, setGroups] = useState(initialGroups);
   const [activeSlug, setActiveSlug] = useState<string | null>(initialActiveSlug);
   const [animationToken, setAnimationToken] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const cacheRef = useRef<Map<string, CategoryDataPayload>>(new Map());
-  const prefetchingRef = useRef<Set<string>>(new Set());
-  const abortRef = useRef<AbortController | null>(null);
-  const requestIdRef = useRef(0);
-
-  useEffect(() => {
-    cacheRef.current.set(toCacheKey(initialActiveSlug), {
-      categories: initialCategories,
-      groups: initialGroups,
-    });
-  }, [initialActiveSlug, initialCategories, initialGroups]);
-
-  useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-    };
-  }, []);
-
-  const fetchPayload = useCallback(async (slug: string | null, signal?: AbortSignal) => {
-    const query = slug ? `?slug=${encodeURIComponent(slug)}` : "";
-    const response = await fetch(`/api/category-data${query}`, {
-      method: "GET",
-      cache: "force-cache",
-      signal,
-    });
-
-    const result = (await response.json()) as {
-      ok: boolean;
-      message?: string;
-      data?: {
-        categories: ColumnInfo[];
-        groups: YearGroupedPosts[];
-      };
-    };
-
-    if (!response.ok || !result.ok || !result.data) {
-      throw new Error(result.message || "分类数据加载失败。");
-    }
-
-    return result.data;
-  }, []);
-
-  const prefetch = useCallback(
-    async (slug: string | null) => {
-      const cacheKey = toCacheKey(slug);
-      if (cacheRef.current.has(cacheKey) || prefetchingRef.current.has(cacheKey)) {
-        return;
-      }
-
-      prefetchingRef.current.add(cacheKey);
-      try {
-        const data = await fetchPayload(slug);
-        cacheRef.current.set(cacheKey, data);
-      } catch {
-        // Ignore prefetch errors and keep interactive fetch as fallback.
-      } finally {
-        prefetchingRef.current.delete(cacheKey);
-      }
-    },
-    [fetchPayload],
-  );
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const topSlugs = categories
-        .map((item) => item.slug)
-        .filter((slug) => slug !== activeSlug)
-        .slice(0, 6);
-
-      topSlugs.forEach((slug) => {
-        void prefetch(slug);
-      });
-    }, 300);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [activeSlug, categories, prefetch]);
-
-  async function handleSelect(nextSlug: string | null) {
+  function handleSelect(nextSlug: string | null) {
     if (nextSlug === activeSlug) {
       return;
     }
 
-    const prevSlug = activeSlug;
-    const cacheKey = toCacheKey(nextSlug);
-    const cached = cacheRef.current.get(cacheKey);
     setActiveSlug(nextSlug);
-    setError("");
-
-    if (cached) {
-      setCategories(cached.categories);
-      setGroups(cached.groups);
-      setAnimationToken((value) => value + 1);
-      const nextUrl = nextSlug ? `/category?slug=${encodeURIComponent(nextSlug)}` : "/category";
-      window.history.replaceState(null, "", nextUrl);
-      return;
-    }
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const requestId = ++requestIdRef.current;
-
-    const loadingTimer = window.setTimeout(() => {
-      setLoading(true);
-    }, SLOW_LOADING_DELAY_MS);
-
-    try {
-      const data = await fetchPayload(nextSlug, controller.signal);
-
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
-
-      cacheRef.current.set(cacheKey, data);
-      setCategories(data.categories);
-      setGroups(data.groups);
-      setAnimationToken((value) => value + 1);
-
-      const nextUrl = nextSlug ? `/category?slug=${encodeURIComponent(nextSlug)}` : "/category";
-      window.history.replaceState(null, "", nextUrl);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        return;
-      }
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
-      setActiveSlug(prevSlug);
-      setError(err instanceof Error ? err.message : "分类数据加载失败。");
-    } finally {
-      if (requestId === requestIdRef.current) {
-        window.clearTimeout(loadingTimer);
-        setLoading(false);
-      }
-    }
+    setGroups(groupPostsByYear(filterPostsBySlug(posts, nextSlug)));
+    setAnimationToken((value) => value + 1);
+    const nextUrl = nextSlug ? `/category?slug=${encodeURIComponent(nextSlug)}` : "/category";
+    window.history.replaceState(null, "", nextUrl);
   }
 
   return (
@@ -192,25 +84,12 @@ export function CategoryPageClient({
         </div>
 
         <CategoryFilter
-          categories={categories}
+          categories={initialCategories}
           activeSlug={activeSlug}
           onSelect={handleSelect}
-          onPrefetch={(slug) => {
-            void prefetch(slug);
-          }}
+          onPrefetch={() => {}}
         />
       </header>
-
-      {error ? (
-        <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "80ms" }}>
-          {error}
-        </p>
-      ) : null}
-      {loading ? (
-        <p className="mori-stagger-item font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "80ms" }}>
-          加载中...
-        </p>
-      ) : null}
 
       {groups.length > 0 ? (
         <YearPostGroups groups={groups} staggered animationToken={animationToken} />

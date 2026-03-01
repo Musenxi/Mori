@@ -333,9 +333,9 @@ export async function getPages(): Promise<TypechoPageItem[]> {
   }
 }
 
-export async function getCategories(): Promise<TypechoCategory[]> {
+export async function getCategories(revalidate: number | false = DEFAULT_REVALIDATE): Promise<TypechoCategory[]> {
   try {
-    const data = await requestTypecho<unknown>("categories");
+    const data = await requestTypecho<unknown>("categories", { revalidate });
     if (Array.isArray(data)) {
       return data as TypechoCategory[];
     }

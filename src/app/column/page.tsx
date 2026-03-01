@@ -5,10 +5,10 @@ import { ColumnCard } from "@/components/column-card";
 import { ColumnListContentFallback } from "@/components/page-loading-fallbacks";
 import { getColumnsData, getSiteContext } from "@/lib/site-data";
 
-export const revalidate = 60;
+export const revalidate = 86400;
 
 async function ColumnListContent({ configured }: { configured: boolean }) {
-  const columns = configured ? await getColumnsData().catch(() => []) : [];
+  const columns = configured ? await getColumnsData(86400).catch(() => []) : [];
 
   return (
     <section className="flex flex-col gap-8 py-10 md:gap-[60px] md:px-[80px] md:py-[80px] md:pl-[clamp(20px,calc(40vw-280px),300px)]">

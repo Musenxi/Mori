@@ -18,7 +18,7 @@ import { SidePostNavigation } from "@/components/article/side-post-navigation";
 import { TocActions } from "@/components/article/toc-actions";
 import { getBlurhashDataUrlForSource } from "@/lib/blurhash-placeholder";
 
-export const revalidate = 60;
+export const revalidate = 0;
 
 interface PostPageProps {
   params: Promise<{

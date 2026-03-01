@@ -205,13 +205,14 @@ function buildColumnsFromColumnCategory(categories: TypechoCategory[], posts: No
   });
 }
 
-async function getAllPostsForListing() {
+async function getAllPostsForListing(revalidate?: number | false) {
   try {
     const archives = await getArchives({
       showDigest: "excerpt",
       limit: 92,
       showContent: true,
       order: "desc",
+      revalidate,
     });
 
     return flattenArchives(archives);
@@ -222,6 +223,7 @@ async function getAllPostsForListing() {
       showDigest: "excerpt",
       limit: 92,
       showContent: true,
+      revalidate,
     });
 
     return normalizePosts(fallback.dataSet);
@@ -267,7 +269,7 @@ export async function getSiteContext(): Promise<SiteContext> {
   }
 }
 
-export async function getHomeData() {
+export async function getHomeData(revalidate?: number | false) {
   if (!isTypechoConfigured()) {
     return {
       groups: [],
@@ -275,7 +277,7 @@ export async function getHomeData() {
     };
   }
 
-  const allPosts = await getAllPostsForListing();
+  const allPosts = await getAllPostsForListing(revalidate);
 
   return {
     groups: groupPostsByYear(allPosts),
@@ -318,13 +320,51 @@ export async function getCategoryData(slug: string | null) {
   };
 }
 
-export async function getColumnsData() {
-  const [allPosts, categories] = await Promise.all([getAllPostsForListing(), getCategories()]);
+export async function getCategoryPageData(activeSlug: string | null) {
+  const [allPosts, categories] = await Promise.all([
+    getAllPostsForListing(86400),
+    getCategories(86400),
+  ]);
+
+  const excludedCategorySlugs = getExcludedCategorySlugs(categories);
+  const filteredPosts = allPosts.filter(
+    (post) => !excludedCategorySlugs.has(normalizeCategorySlug(post.categorySlug)),
+  );
+  const trimmedPosts = filteredPosts.map(({ html, ...rest }) => rest);
+
+  const selectedSlug = normalizeCategorySlug(activeSlug);
+  const selectedPosts = selectedSlug
+    ? trimmedPosts.filter(
+      (post) => normalizeCategorySlug(post.categorySlug) === selectedSlug,
+    )
+    : trimmedPosts;
+
+  const groups = groupPostsByYear(selectedPosts);
+  const topCategories = categories
+    .filter((item) => item.slug && item.name && !excludedCategorySlugs.has(normalizeCategorySlug(item.slug)))
+    .map(mapCategoryToColumn)
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    categories: topCategories,
+    posts: trimmedPosts,
+    groups,
+  };
+}
+
+export async function getColumnsData(revalidate?: number | false) {
+  const [allPosts, categories] = await Promise.all([
+    getAllPostsForListing(revalidate),
+    getCategories(revalidate),
+  ]);
   return buildColumnsFromColumnCategory(categories, allPosts);
 }
 
-export async function getColumnDetailData(slug: string) {
-  const [allPosts, categories] = await Promise.all([getAllPostsForListing(), getCategories()]);
+export async function getColumnDetailData(slug: string, revalidate?: number | false) {
+  const [allPosts, categories] = await Promise.all([
+    getAllPostsForListing(revalidate),
+    getCategories(revalidate),
+  ]);
   const columns = buildColumnsFromColumnCategory(categories, allPosts);
 
   const normalizedSlug = slug.trim();
@@ -340,6 +380,34 @@ export async function getColumnDetailData(slug: string) {
   };
 
   return {
+    column,
+    groups: groupPostsByYear(matchedPosts),
+  };
+}
+
+export async function getColumnDetailPageData(slug: string, revalidate?: number | false) {
+  const [allPosts, categories] = await Promise.all([
+    getAllPostsForListing(revalidate),
+    getCategories(revalidate),
+  ]);
+  const columns = buildColumnsFromColumnCategory(categories, allPosts);
+
+  const normalizedSlug = slug.trim();
+  const trimmedPosts = allPosts.map(({ html, ...rest }) => rest);
+  const matchedPosts = trimmedPosts.filter(
+    (post) => (post.seriesSlug || "").trim() === normalizedSlug,
+  );
+
+  const column = columns.find((item) => item.slug === normalizedSlug) ?? {
+    slug: normalizedSlug,
+    name: normalizedSlug,
+    description: "",
+    count: matchedPosts.length,
+  };
+
+  return {
+    columns,
+    posts: trimmedPosts,
     column,
     groups: groupPostsByYear(matchedPosts),
   };

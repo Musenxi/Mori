@@ -4,10 +4,10 @@ import { HomeContentFallback } from "@/components/page-loading-fallbacks";
 import { YearPostGroups } from "@/components/year-post-groups";
 import { getHomeData } from "@/lib/site-data";
 
-export const revalidate = 60;
+export const revalidate = 86400;
 
 async function HomePageContent() {
-  const home = await getHomeData();
+  const home = await getHomeData(86400);
 
   return (
     <section className="mori-stagger-item px-0 py-8 md:px-[80px] md:py-[50px] md:pl-[clamp(20px,calc(40vw-280px),300px)]">

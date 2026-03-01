@@ -41,6 +41,7 @@ pnpm dev
 TYPECHO_API_BASE_URL="https://your-typecho-site.com/api"
 TYPECHO_API_TOKEN="your-plugin-api-token"
 TYPECHO_REVALIDATE_SECONDS="90"
+TYPECHO_WEBHOOK_TOKEN="replace-with-a-strong-random-string"
 GRAVATAR_PREFIX="https://gravatar.com/avatar/"
 NEXT_PUBLIC_IMAGE_BLURHASH="LEHV6nWB2yk8pyo0adR*.7kCMdnj"
 BLURHASH_CACHE_TTL_SECONDS="604800"
@@ -48,6 +49,7 @@ BLURHASH_FETCH_TIMEOUT_MS="8000"
 REDIS_URL="redis://127.0.0.1:6379"
 REDIS_KEY_PREFIX="mori"
 SOCKET_INTERNAL_TOKEN="replace-with-a-strong-random-string"
+SOCKET_BRIDGE_ORIGIN="http://127.0.0.1:3000"
 ```
 
 说明：`BLURHASH_CACHE_TTL_SECONDS` 仅控制 Node 进程内存缓存时长；BlurHash 的 Redis 键默认持久化（不设置过期时间）。
@@ -133,6 +135,7 @@ Socket.IO 实时同步：
 - 服务端在 `POST /api/post-stats` 成功计数后，会广播 `post:counter-updated` 事件（浏览/点赞实时更新）。
 - 服务端会广播 `presence:online`（全站在线连接数）和 `presence:post-reading`（单篇文章实时阅读人数）。
 - `SOCKET_INTERNAL_TOKEN` 用于保护内部广播桥接接口（`/internal/socket-broadcast`），生产环境建议使用高强度随机值。
+- `SOCKET_BRIDGE_ORIGIN` 用于指定内部广播桥接的回环地址，避免反代/CDN 导致 `socket bridge failed`。
 - 计数房间：
 - `post:<cid>`
 - `post:slug:<slug>`
@@ -172,6 +175,23 @@ PROCESS_REPORTER_STATUS_TTL_SECONDS="3600"
 # 多久无新上报视为离线（秒）
 PROCESS_REPORTER_STALE_SECONDS="180"
 ```
+
+## Typecho Webhook（主动更新）
+
+Restful 插件可在发布/更新文章、评论通过审核、设置变更、分类/标签变更时向 Mori 发送 Webhook：
+
+- 地址：`POST /api/typecho-webhook`
+- Header：`X-Mori-Webhook-Token`（可选，需与 `TYPECHO_WEBHOOK_TOKEN` 一致）
+
+Mori 会在收到 Webhook 后：
+
+- 清理 Redis 中 `typecho:*` 缓存
+- 触发页面 on-demand revalidate（首页、分类/专栏、文章详情、留言等）
+
+建议在 Typecho Restful 插件中配置：
+
+- `Mori 更新地址`：`https://你的域名/api/typecho-webhook`
+- `Mori Webhook Token`：与 `TYPECHO_WEBHOOK_TOKEN` 保持一致
 
 ProcessReporterMac 客户端配置建议：
 
