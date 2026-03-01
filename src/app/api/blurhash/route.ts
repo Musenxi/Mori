@@ -9,6 +9,15 @@ import {
 export const runtime = "nodejs";
 
 function resolveOrigin(request: NextRequest) {
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.SITE_URL?.trim();
+  if (envUrl) {
+    try {
+      return new URL(envUrl).origin;
+    } catch {
+      // Fall through.
+    }
+  }
+
   try {
     const originUrl = new URL(request.nextUrl.origin);
     if (originUrl.hostname === "0.0.0.0" || originUrl.hostname === "::") {
