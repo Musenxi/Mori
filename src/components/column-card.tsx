@@ -14,6 +14,7 @@ interface ColumnCardProps {
 
 export function ColumnCard({ column, compact = false, disableArrow = false, href }: ColumnCardProps) {
   const resolvedIcon = resolveColumnIcon(column.icon);
+  const description = typeof column.description === "string" ? column.description.trim() : "";
 
   const content = (
     <article
@@ -56,14 +57,16 @@ export function ColumnCard({ column, compact = false, disableArrow = false, href
         >
           {column.name}
         </h3>
-        <p
-          className={cn(
-            "mt-2 line-clamp-2 font-sans text-sm leading-[1.5] text-secondary",
-            compact && "mt-1 text-[13px] leading-[1.4]",
-          )}
-        >
-          {column.description || "探索设计背后的思维模型与美学原则，重塑数字体验。"}
-        </p>
+        {description ? (
+          <p
+            className={cn(
+              "mt-2 line-clamp-2 font-sans text-sm leading-[1.5] text-secondary",
+              compact && "mt-1 text-[13px] leading-[1.4]",
+            )}
+          >
+            {description}
+          </p>
+        ) : null}
       </div>
 
       {disableArrow ? null : (

@@ -30,6 +30,10 @@ type LivePhotosKitPlayer = {
   videoSrc?: string;
 };
 type LivePhotosKitNamespace = {
+  augmentElementAsPlayer?: (element: HTMLElement) => LivePhotosKitPlayer | void;
+  // Some versions expose this typo; keep compatibility.
+  augementElementAsPlayer?: (element: HTMLElement) => LivePhotosKitPlayer | void;
+  createPlayer?: (...args: unknown[]) => LivePhotosKitPlayer | void;
   Player?: (element: HTMLElement) => LivePhotosKitPlayer;
 };
 type LivePhotoWindow = Window & typeof globalThis & {
@@ -515,7 +519,13 @@ function loadLivePhotosKitScript() {
   }
 
   const runtimeWindow = window as LivePhotoWindow;
-  if (runtimeWindow.LivePhotosKit?.Player) {
+  const lpk = runtimeWindow.LivePhotosKit;
+  if (
+    lpk?.augmentElementAsPlayer ||
+    lpk?.augementElementAsPlayer ||
+    lpk?.createPlayer ||
+    lpk?.Player
+  ) {
     return Promise.resolve();
   }
 
@@ -525,7 +535,13 @@ function loadLivePhotosKitScript() {
 
   livePhotosKitScriptPromise = new Promise<void>((resolve, reject) => {
     const onLoaded = () => {
-      if ((window as LivePhotoWindow).LivePhotosKit?.Player) {
+      const loaded = (window as LivePhotoWindow).LivePhotosKit;
+      if (
+        loaded?.augmentElementAsPlayer ||
+        loaded?.augementElementAsPlayer ||
+        loaded?.createPlayer ||
+        loaded?.Player
+      ) {
         resolve();
         return;
       }
@@ -992,8 +1008,7 @@ export function MarkdownRuntime() {
           }
 
           const runtimeWindow = window as LivePhotoWindow;
-          const playerFactory = runtimeWindow.LivePhotosKit?.Player;
-          if (typeof playerFactory !== "function") {
+          if (!runtimeWindow.LivePhotosKit) {
             return;
           }
 
@@ -1013,12 +1028,45 @@ export function MarkdownRuntime() {
             node.setAttribute("data-video-src", videoSrc);
 
             try {
-              const player = playerFactory(node);
-              if (player && typeof player === "object") {
-                player.photoSrc = photoSrc;
-                player.videoSrc = videoSrc;
+              const runtime = runtimeWindow.LivePhotosKit;
+              const applySources = (player?: LivePhotosKitPlayer | void) => {
+                if (player && typeof player === "object") {
+                  player.photoSrc = photoSrc;
+                  player.videoSrc = videoSrc;
+                }
+              };
+
+              let bound = false;
+
+              if (runtime?.augmentElementAsPlayer) {
+                applySources(runtime.augmentElementAsPlayer(node));
+                bound = true;
+              } else if (runtime?.augementElementAsPlayer) {
+                applySources(runtime.augementElementAsPlayer(node));
+                bound = true;
+              } else if (runtime?.createPlayer) {
+                const createAttempts: Array<() => LivePhotosKitPlayer | void> = [
+                  () => runtime.createPlayer?.(node),
+                  () => runtime.createPlayer?.(node, { photoSrc, videoSrc }),
+                  () => runtime.createPlayer?.({ element: node }),
+                  () => runtime.createPlayer?.({ element: node, photoSrc, videoSrc }),
+                ];
+
+                for (const attempt of createAttempts) {
+                  try {
+                    applySources(attempt());
+                    bound = true;
+                    break;
+                  } catch {
+                    // Try the next signature.
+                  }
+                }
+              } else if (runtime?.Player) {
+                applySources(runtime.Player(node));
+                bound = true;
               }
-              node.dataset.moriLivePhotoBound = "1";
+
+              node.dataset.moriLivePhotoBound = bound ? "1" : "error";
             } catch {
               node.dataset.moriLivePhotoBound = "error";
             }
