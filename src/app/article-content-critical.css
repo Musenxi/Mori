@@ -381,7 +381,7 @@ img.medium-zoom-image--opened {
   min-height: 260px;
   border-radius: 8px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--tag) 72%, transparent);
+  background: transparent;
 }
 
 .prose-article .mori-live-photo-player>img {
