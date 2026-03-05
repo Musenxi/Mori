@@ -24,13 +24,13 @@ export function ColumnCard({ column, compact = false, disableArrow = false, href
         compact && "gap-3 px-4 py-4",
       )}
     >
-      <div
-        className={cn(
-          "flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-muted",
-          compact && "h-12 w-12",
-        )}
-        aria-hidden
-      >
+        <div
+          className={cn(
+            "flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-white",
+            compact && "h-12 w-12",
+          )}
+          aria-hidden
+        >
         {resolvedIcon?.type === "image" ? (
           <Image
             src={resolvedIcon.src}
