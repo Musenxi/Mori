@@ -6,7 +6,6 @@ import {
   type GeoJSONSource,
   type LngLatBoundsLike,
   type MapLayerMouseEvent,
-  type StyleSpecification,
 } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -34,31 +33,7 @@ type MapPointFeatureCollection = {
   }>;
 };
 
-const OSM_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: [
-        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      ],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-      maxzoom: 19,
-    },
-  },
-  layers: [
-    {
-      id: "osm",
-      type: "raster",
-      source: "osm",
-      minzoom: 0,
-      maxzoom: 22,
-    },
-  ],
-};
+const MAPBOX_LIKE_DARK_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
 const POINT_SOURCE_ID = "mori-map-points";
 const POINT_LAYER_ID = "mori-map-points-layer";
@@ -224,7 +199,7 @@ export function TravelMapPanel({ points, className, mapViewportClassName }: Trav
 
     const map = new MapLibreMap({
       container: containerRef.current,
-      style: OSM_STYLE,
+      style: MAPBOX_LIKE_DARK_STYLE,
       center: defaultCenter,
       zoom: points.length > 0 ? 5 : 4,
       attributionControl: false,
