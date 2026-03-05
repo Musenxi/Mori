@@ -70,7 +70,7 @@ function toJson(data: ProcessReporterStatusResponse | { ok: boolean; message: st
   });
 }
 
-function resolveBroadcastOrigin(request: NextRequest) {
+function resolveBroadcastOrigin() {
   const override = process.env.SOCKET_BRIDGE_ORIGIN?.trim();
   if (override) {
     return override;
@@ -93,9 +93,9 @@ function getSocketInternalToken() {
   return "mori-local-socket-token";
 }
 
-async function emitProcessReporterUpdated(request: NextRequest, snapshot: ProcessReporterStatusSnapshot) {
+async function emitProcessReporterUpdated(snapshot: ProcessReporterStatusSnapshot) {
   try {
-    const response = await fetch(`${resolveBroadcastOrigin(request)}/internal/socket-broadcast`, {
+    const response = await fetch(`${resolveBroadcastOrigin()}/internal/socket-broadcast`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
   }
 
   await saveProcessReporterSnapshot(snapshot);
-  await emitProcessReporterUpdated(request, snapshot);
+  await emitProcessReporterUpdated(snapshot);
   const ownerName = await getSiteOwnerName();
 
   return toJson({

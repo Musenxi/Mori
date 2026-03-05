@@ -16,6 +16,8 @@ import { PostNavigation } from "@/components/article/post-navigation";
 import { CommentSection } from "@/components/article/comment-section";
 import { SidePostNavigation } from "@/components/article/side-post-navigation";
 import { TocActions } from "@/components/article/toc-actions";
+import { DesktopSideNavigationDrawer } from "@/components/article/desktop-side-navigation-drawer";
+import { FootprintFloatingMap } from "@/components/article/footprint-floating-map";
 import { getBlurhashDataUrlForSource } from "@/lib/blurhash-placeholder";
 
 export const revalidate = 0;
@@ -87,6 +89,10 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
   );
 
   const tocItems = detail.tocItems;
+  const desktopMapEnabled = detail.map.enabled && detail.map.points.length > 0;
+  const articleLayoutClass = desktopMapEnabled
+    ? "min-[1080px]:max-[1279px]:mx-auto min-[1080px]:max-[1279px]:grid min-[1080px]:max-[1279px]:max-w-[1098px] min-[1080px]:max-[1279px]:grid-cols-[minmax(0,850px)_200px] min-[1080px]:max-[1279px]:gap-x-12 min-[1280px]:max-[1439px]:mx-auto min-[1280px]:max-[1439px]:grid min-[1280px]:max-[1439px]:max-w-[1140px] min-[1280px]:max-[1439px]:grid-cols-[minmax(0,780px)_320px] min-[1280px]:max-[1439px]:gap-x-10 min-[1280px]:pl-[18px] min-[1440px]:mx-auto min-[1440px]:grid min-[1440px]:max-w-[1140px] min-[1440px]:grid-cols-[minmax(0,780px)_320px] min-[1440px]:gap-x-10 min-[1440px]:pl-[18px]"
+    : "min-[1080px]:max-[1439px]:mx-auto min-[1080px]:max-[1439px]:grid min-[1080px]:max-[1439px]:max-w-[1098px] min-[1080px]:max-[1439px]:grid-cols-[minmax(0,850px)_200px] min-[1080px]:max-[1439px]:gap-x-12 min-[1440px]:mx-auto min-[1440px]:grid min-[1440px]:max-w-[1440px] min-[1440px]:grid-cols-[180px_850px_200px] min-[1440px]:gap-x-[95px]";
 
   return (
     <>
@@ -103,29 +109,41 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
             />
           </div>
 
-          <section className="min-[1080px]:max-[1439px]:mx-auto min-[1080px]:max-[1439px]:grid min-[1080px]:max-[1439px]:max-w-[1098px] min-[1080px]:max-[1439px]:grid-cols-[minmax(0,850px)_200px] min-[1080px]:max-[1439px]:gap-x-12 min-[1440px]:mx-auto min-[1440px]:grid min-[1440px]:max-w-[1440px] min-[1440px]:grid-cols-[180px_850px_200px] min-[1440px]:gap-x-[95px]">
-            <aside
-              data-side-nav-scroll-container
-              className="mori-post-left-rail mori-post-rail-stagger mori-stagger-item group hidden min-[1440px]:sticky min-[1440px]:top-24 min-[1440px]:z-40 min-[1440px]:block min-[1440px]:w-[180px] min-[1440px]:max-h-[calc(100vh-7rem)] min-[1440px]:self-start min-[1440px]:justify-self-end min-[1440px]:overflow-y-auto min-[1440px]:pr-1"
-              style={{ animationDelay: "120ms" }}
-            >
-              <div className="opacity-30 transition-opacity duration-300 group-hover:opacity-100">
-                <SidePostNavigation
-                  posts={detail.sideNavigationPosts}
-                  currentCid={detail.post.cid}
-                  className={detail.column ? "mb-8" : undefined}
-                />
-                {detail.column ? (
-                  <ColumnDirectory
-                    column={detail.column}
-                    currentSlug={detail.post.slug}
-                    articles={detail.columnArticles}
-                  />
-                ) : null}
-              </div>
-            </aside>
+          {desktopMapEnabled ? (
+            <DesktopSideNavigationDrawer
+              posts={detail.sideNavigationPosts}
+              currentCid={detail.post.cid}
+              column={detail.column}
+              currentSlug={detail.post.slug}
+              articles={detail.columnArticles}
+            />
+          ) : null}
 
-            <div className="mx-auto w-full max-w-[850px] flex flex-col gap-8">
+          <section className={articleLayoutClass}>
+            {!desktopMapEnabled ? (
+              <aside
+                data-side-nav-scroll-container
+                className="mori-post-left-rail mori-post-rail-stagger mori-stagger-item group hidden min-[1440px]:sticky min-[1440px]:top-24 min-[1440px]:z-40 min-[1440px]:block min-[1440px]:w-[180px] min-[1440px]:max-h-[calc(100vh-7rem)] min-[1440px]:self-start min-[1440px]:justify-self-end min-[1440px]:overflow-y-auto min-[1440px]:pr-1"
+                style={{ animationDelay: "120ms" }}
+              >
+                <div className="opacity-30 transition-opacity duration-300 group-hover:opacity-100">
+                  <SidePostNavigation
+                    posts={detail.sideNavigationPosts}
+                    currentCid={detail.post.cid}
+                    className={detail.column ? "mb-8" : undefined}
+                  />
+                  {detail.column ? (
+                    <ColumnDirectory
+                      column={detail.column}
+                      currentSlug={detail.post.slug}
+                      articles={detail.columnArticles}
+                    />
+                  ) : null}
+                </div>
+              </aside>
+            ) : null}
+
+            <div className={`mx-auto flex w-full flex-col gap-8 ${desktopMapEnabled ? "max-w-[850px] min-[1280px]:max-w-[780px]" : "max-w-[850px]"}`}>
               <div className="mori-stagger-item" style={{ animationDelay: "90ms" }}>
                 <PostBody post={detail.post} />
               </div>
@@ -152,10 +170,18 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
             </div>
 
             <aside
-              className="mori-post-right-rail mori-post-rail-stagger mori-stagger-item hidden min-[1080px]:sticky min-[1080px]:top-24 min-[1080px]:block min-[1080px]:w-[200px] min-[1080px]:max-h-[calc(100vh-7rem)] min-[1080px]:self-start min-[1080px]:overflow-y-auto min-[1080px]:pr-1"
+              data-mori-toc-rail
+              className={`mori-post-right-rail mori-post-rail-stagger mori-stagger-item hidden min-[1080px]:sticky min-[1080px]:top-24 min-[1080px]:block min-[1080px]:self-start min-[1080px]:pr-1 ${desktopMapEnabled ? "min-[1080px]:overflow-visible min-[1080px]:w-[200px] min-[1080px]:ml-[100px] min-[1280px]:w-[320px]" : "min-[1080px]:max-h-[calc(100vh-7rem)] min-[1080px]:overflow-y-auto min-[1080px]:w-[200px]"}`}
               style={{ animationDelay: "170ms" }}
             >
-              <TableOfContents items={tocItems} />
+              {desktopMapEnabled ? (
+                <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col">
+                  <TableOfContents items={tocItems} className="h-full max-h-[500px] min-h-0 max-w-full flex-1" />
+                  <FootprintFloatingMap points={detail.map.points} />
+                </div>
+              ) : (
+                <TableOfContents items={tocItems} />
+              )}
             </aside>
           </section>
         </section>

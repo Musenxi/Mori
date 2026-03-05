@@ -204,3 +204,14 @@ export interface TocItem {
   text: string;
   level: number;
 }
+
+export type ArticleMapPointSource = "plus_code" | "lat_lng";
+
+export interface ArticleMapPoint {
+  id: string;
+  label: string;
+  token: string;
+  lat: number;
+  lng: number;
+  source: ArticleMapPointSource;
+}

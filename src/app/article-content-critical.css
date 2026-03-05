@@ -10,6 +10,17 @@
   margin-bottom: 0;
 }
 
+.prose-article .mori-map-anchor {
+  display: inline-block;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
 .prose-article> :first-child {
   margin-top: 0 !important;
 }

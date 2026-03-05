@@ -1,9 +1,10 @@
 import sanitizeHtml from "sanitize-html";
+import { OpenLocationCode } from "open-location-code";
 
 import { renderMarkdownToHtml } from "./markdown-render";
 import { replaceOwoTokensWithHtml } from "./owo";
 import { stripHtml } from "./typecho-normalize";
-import { TocItem } from "./typecho-types";
+import { ArticleMapPoint, TocItem } from "./typecho-types";
 
 function slugifyHeading(text: string) {
   const cleaned = text
@@ -29,6 +30,22 @@ const MARKDOWN_IMAGE_UNIT_PATTERN =
 const MARKDOWN_IMAGE_TAG_IN_UNIT_PATTERN = /<img\b[^>]*\bdata-mori-markdown-image="1"[^>]*>/i;
 const MARKDOWN_LIVE_PHOTO_UNIT_PATTERN =
   /<div\b[^>]*\bdata-mori-live-photo-block="1"[^>]*>\s*<div\b[^>]*\bdata-mori-live-photo="1"[^>]*>[\s\S]*?<\/div>\s*(?:<p\b[^>]*\bmori-live-photo-caption\b[^>]*>[\s\S]*?<\/p>)?\s*<\/div>/gi;
+const MAP_TOKEN_SPAN_PATTERN = /<span\b[^>]*\bdata-mori-map-token="1"[^>]*><\/span>/gi;
+const MAP_TOKEN_PLUS_CODE_WITH_LOCALITY_REGEX =
+  /^([23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{2,8})(?:\s+(.+))?$/i;
+const MAP_TOKEN_LAT_LNG_REGEX =
+  /^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))$/;
+
+type OpenLocationCodeRuntime = {
+  isValid: (code: string) => boolean;
+  isFull: (code: string) => boolean;
+  isShort: (code: string) => boolean;
+  decode: (code: string) => { latitudeCenter: number; longitudeCenter: number };
+  recoverNearest: (shortCode: string, latitude: number, longitude: number) => string;
+};
+
+const openLocationCode = new (OpenLocationCode as unknown as { new(): OpenLocationCodeRuntime })();
+const geocodePromiseCache = new Map<string, Promise<{ lat: number; lng: number } | null>>();
 
 type MarkdownMediaUnit = {
   kind: "image" | "live";
@@ -58,6 +75,18 @@ function escapeHtmlText(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function decodeBase64Utf8(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    return Buffer.from(value, "base64").toString("utf8");
+  } catch {
+    return "";
+  }
 }
 
 function readTagAttribute(tag: string, name: string) {
@@ -290,6 +319,246 @@ function applyMarkdownImageGalleryLayout(html: string) {
   return nextHtml;
 }
 
+function resolveLatLngToken(token: string) {
+  const matched = token.match(MAP_TOKEN_LAT_LNG_REGEX);
+  if (!matched) {
+    return null;
+  }
+
+  const lat = Number(matched[1]);
+  const lng = Number(matched[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return null;
+  }
+
+  return {
+    lat,
+    lng,
+    source: "lat_lng" as const,
+  };
+}
+
+function parsePlusCodeToken(token: string) {
+  const matched = token.match(MAP_TOKEN_PLUS_CODE_WITH_LOCALITY_REGEX);
+  if (!matched) {
+    return null;
+  }
+
+  const normalizedCode = String(matched[1] || "").trim().toUpperCase();
+  const locality = String(matched[2] || "").trim();
+  if (!normalizedCode) {
+    return null;
+  }
+
+  return {
+    normalizedCode,
+    locality,
+  };
+}
+
+async function resolveLocalityReference(localityRaw: string) {
+  const locality = localityRaw.trim();
+  if (!locality) {
+    return null;
+  }
+
+  const cacheKey = locality.toLowerCase();
+  const cached = geocodePromiseCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const job = (async () => {
+    try {
+      const query = encodeURIComponent(locality);
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+          "User-Agent": "MoriMap/1.0 (+https://github.com/Innei/book-ssg-template)",
+        },
+        cache: "force-cache",
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const payload = (await response.json()) as Array<{ lat?: string; lon?: string }>;
+      const first = Array.isArray(payload) ? payload[0] : null;
+      const lat = Number(first?.lat);
+      const lng = Number(first?.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return null;
+      }
+
+      return {
+        lat,
+        lng,
+      };
+    } catch {
+      return null;
+    }
+  })();
+
+  geocodePromiseCache.set(cacheKey, job);
+  return job;
+}
+
+async function resolvePlusCodeToken(token: string) {
+  const parsed = parsePlusCodeToken(token);
+  if (!parsed) {
+    return null;
+  }
+
+  try {
+    const { normalizedCode, locality } = parsed;
+    if (!openLocationCode.isValid(normalizedCode)) {
+      return null;
+    }
+
+    let fullCode = normalizedCode;
+    if (!openLocationCode.isFull(fullCode)) {
+      if (!openLocationCode.isShort(fullCode) || !locality) {
+        return null;
+      }
+
+      const reference = await resolveLocalityReference(locality);
+      if (!reference) {
+        return null;
+      }
+
+      fullCode = openLocationCode.recoverNearest(fullCode, reference.lat, reference.lng);
+      if (!openLocationCode.isValid(fullCode) || !openLocationCode.isFull(fullCode)) {
+        return null;
+      }
+    }
+
+    const decoded = openLocationCode.decode(fullCode);
+    const lat = Number(decoded.latitudeCenter);
+    const lng = Number(decoded.longitudeCenter);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return null;
+    }
+
+    return {
+      lat,
+      lng,
+      source: "plus_code" as const,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function injectMapAnchors(html: string) {
+  if (!html.includes("data-mori-map-token=\"1\"")) {
+    return {
+      html,
+      mapPoints: [] as ArticleMapPoint[],
+    };
+  }
+
+  MAP_TOKEN_SPAN_PATTERN.lastIndex = 0;
+  const rawMatches = Array.from(html.matchAll(MAP_TOKEN_SPAN_PATTERN));
+  if (rawMatches.length === 0) {
+    return {
+      html,
+      mapPoints: [] as ArticleMapPoint[],
+    };
+  }
+
+  const resolvedTokens = await Promise.all(rawMatches.map(async (match) => {
+    const tokenSpan = match[0];
+    const start = match.index ?? -1;
+    const end = start + tokenSpan.length;
+    if (start < 0) {
+      return null;
+    }
+
+    const tokenBase64 = decodeHtmlEntity(readTagAttribute(tokenSpan, "data-token-b64")).trim();
+    const token = decodeBase64Utf8(tokenBase64).trim();
+    if (!token) {
+      return {
+        start,
+        end,
+        token,
+        resolved: null,
+      };
+    }
+
+    const resolved = resolveLatLngToken(token) ?? await resolvePlusCodeToken(token);
+    return {
+      start,
+      end,
+      token,
+      resolved,
+    };
+  }));
+
+  const mapPoints: ArticleMapPoint[] = [];
+  let mapIndex = 0;
+  const replacements: Array<{ start: number; end: number; html: string }> = [];
+
+  resolvedTokens.forEach((item) => {
+    if (!item) {
+      return;
+    }
+
+    if (!item.resolved) {
+      replacements.push({
+        start: item.start,
+        end: item.end,
+        html: item.token ? escapeHtmlText(`{${item.token}}`) : "",
+      });
+      return;
+    }
+
+    mapIndex += 1;
+    const pointId = `mori-map-point-${mapIndex}`;
+    mapPoints.push({
+      id: pointId,
+      label: item.token,
+      token: item.token,
+      lat: item.resolved.lat,
+      lng: item.resolved.lng,
+      source: item.resolved.source,
+    });
+    replacements.push({
+      start: item.start,
+      end: item.end,
+      html: `<span id="${pointId}" class="mori-map-anchor" aria-hidden="true"></span>`,
+    });
+  });
+
+  if (replacements.length === 0) {
+    return {
+      html,
+      mapPoints,
+    };
+  }
+
+  let mappedHtml = html;
+  for (let index = replacements.length - 1; index >= 0; index -= 1) {
+    const replacement = replacements[index];
+    mappedHtml =
+      mappedHtml.slice(0, replacement.start) +
+      replacement.html +
+      mappedHtml.slice(replacement.end);
+  }
+
+  return {
+    html: mappedHtml,
+    mapPoints,
+  };
+}
+
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
     "h1",
@@ -403,7 +672,13 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     ],
     pre: ["class", "style", "tabindex"],
     code: ["class", "style"],
-    span: ["class", "style", "aria-hidden"],
+    span: [
+      "class",
+      "style",
+      "aria-hidden",
+      "data-mori-map-token",
+      "data-token-b64",
+    ],
     input: ["checked", "disabled", "readonly", "type"],
     math: ["display", "xmlns"],
     annotation: ["encoding"],
@@ -423,6 +698,8 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
       "data-items",
       "data-tab-index",
       "data-source",
+      "data-mori-map-token",
+      "data-token-b64",
       "aria-hidden",
       "aria-label",
       "aria-controls",
@@ -515,11 +792,12 @@ export async function prepareArticleContent(rawContent: string | undefined) {
   const htmlSource = await markdownToSafeHtml(rawContent);
   const cleaned = sanitizeHtml(htmlSource, SANITIZE_OPTIONS);
   const withImageGalleries = applyMarkdownImageGalleryLayout(cleaned);
+  const withMapAnchors = await injectMapAnchors(withImageGalleries);
 
   const tocItems: TocItem[] = [];
   let index = 0;
 
-  const htmlWithHeadingIds = withImageGalleries.replace(
+  const htmlWithHeadingIds = withMapAnchors.html.replace(
     /<h([1-4])([^>]*)>([\s\S]*?)<\/h\1>/gi,
     (_, level, attrs, inner) => {
       index += 1;
@@ -544,5 +822,6 @@ export async function prepareArticleContent(rawContent: string | undefined) {
   return {
     html: htmlWithHeadingIds,
     tocItems,
+    mapPoints: withMapAnchors.mapPoints,
   };
 }

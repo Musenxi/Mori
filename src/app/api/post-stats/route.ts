@@ -47,7 +47,7 @@ function toRealtimePayload(counter: TypechoPostCounter): PostCounterRealtimePayl
   };
 }
 
-function resolveBroadcastOrigin(request: NextRequest) {
+function resolveBroadcastOrigin() {
   const override = process.env.SOCKET_BRIDGE_ORIGIN?.trim();
   if (override) {
     return override;
@@ -61,7 +61,7 @@ function resolveBroadcastOrigin(request: NextRequest) {
   return `http://127.0.0.1:${port}`;
 }
 
-async function emitCounterUpdate(request: NextRequest, counter: TypechoPostCounter) {
+async function emitCounterUpdate(counter: TypechoPostCounter) {
   const payload = toRealtimePayload(counter);
   if (payload.cid <= 0) {
     return;
@@ -73,7 +73,7 @@ async function emitCounterUpdate(request: NextRequest, counter: TypechoPostCount
   }
 
   try {
-    const bridgeResponse = await fetch(`${resolveBroadcastOrigin(request)}/internal/socket-broadcast`, {
+    const bridgeResponse = await fetch(`${resolveBroadcastOrigin()}/internal/socket-broadcast`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
       data: result.data,
     });
     if (result.data.counted !== false) {
-      await emitCounterUpdate(request, result.data);
+      await emitCounterUpdate(result.data);
     }
     appendSetCookies(response, result.setCookies);
     return response;

@@ -235,7 +235,10 @@ export function TocActions({ cid, slug, initialLikeCount, className }: TocAction
     }, [initialLikeCount, likesNum]);
 
     return (
-        <div className={cn("fixed bottom-6 right-6 z-50 flex flex-col items-center gap-3", className)}>
+        <div
+            data-mori-toc-actions="1"
+            className={cn("fixed bottom-6 right-6 z-50 flex flex-col items-center gap-3", className)}
+        >
             {/* Like (heart) button */}
             <button
                 type="button"

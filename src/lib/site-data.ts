@@ -330,7 +330,11 @@ export async function getCategoryPageData(activeSlug: string | null) {
   const filteredPosts = allPosts.filter(
     (post) => !excludedCategorySlugs.has(normalizeCategorySlug(post.categorySlug)),
   );
-  const trimmedPosts = filteredPosts.map(({ html, ...rest }) => rest);
+  const trimmedPosts = filteredPosts.map((post) => {
+    const next = { ...post };
+    delete next.html;
+    return next;
+  });
 
   const selectedSlug = normalizeCategorySlug(activeSlug);
   const selectedPosts = selectedSlug
@@ -393,7 +397,11 @@ export async function getColumnDetailPageData(slug: string, revalidate?: number 
   const columns = buildColumnsFromColumnCategory(categories, allPosts);
 
   const normalizedSlug = slug.trim();
-  const trimmedPosts = allPosts.map(({ html, ...rest }) => rest);
+  const trimmedPosts = allPosts.map((post) => {
+    const next = { ...post };
+    delete next.html;
+    return next;
+  });
   const matchedPosts = trimmedPosts.filter(
     (post) => (post.seriesSlug || "").trim() === normalizedSlug,
   );
@@ -520,6 +528,10 @@ export async function getPostDetailData(
   const columns = buildColumnsFromColumnCategory(categories, allPosts);
 
   const rawFields = rawPost.fields ?? {};
+  const mapFieldCandidates = [rawFields.Map?.value, rawFields.map?.value];
+  const mapEnabled = mapFieldCandidates.some(
+    (value) => typeof value === "string" && value.trim() === "1",
+  );
   const bannerImage =
     typeof rawFields.banner?.value === "string" && rawFields.banner.value.trim()
       ? rawFields.banner.value.trim()
@@ -560,6 +572,10 @@ export async function getPostDetailData(
       count: comments.count,
     } satisfies CommentPagination,
     tocItems: article.tocItems,
+    map: {
+      enabled: mapEnabled,
+      points: mapEnabled ? article.mapPoints : [],
+    },
     adjacent,
     sideNavigationPosts,
     column,

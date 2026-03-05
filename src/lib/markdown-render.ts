@@ -66,6 +66,11 @@ const LIVE_PHOTO_TOKEN_REGEX = new RegExp(
   String.raw`)?`,
   "gim",
 );
+const MAP_LOCATION_TOKEN_REGEX = /\{([^{}\r\n]+)\}/g;
+const MAP_LOCATION_PLUS_CODE_WITH_LOCALITY_REGEX =
+  /^([23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{2,8})(?:\s+.+)?$/i;
+const MAP_LOCATION_LAT_LNG_REGEX =
+  /^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))$/;
 const LANGUAGE_ALIAS: Record<string, string> = {
   csharp: "c#",
   cxx: "cpp",
@@ -1575,6 +1580,65 @@ function preprocessLivePhotos(markdown: string): string {
   return replaced.replace(/\x00CODEBLOCK_(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)] || "");
 }
 
+function isLikelyMapLocationToken(rawToken: string) {
+  const token = rawToken.trim();
+  if (!token) {
+    return false;
+  }
+
+  if (MAP_LOCATION_PLUS_CODE_WITH_LOCALITY_REGEX.test(token)) {
+    return true;
+  }
+
+  const match = token.match(MAP_LOCATION_LAT_LNG_REGEX);
+  if (!match) {
+    return false;
+  }
+
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return false;
+  }
+
+  return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
+
+function preprocessMapLocations(markdown: string): string {
+  // Keep fenced/indented code blocks untouched, then restore after replacement.
+  const codeBlocks: string[] = [];
+  const CODE_FENCE_REGEX = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1\s*$/gm;
+  const CODE_INDENT_REGEX = /^(?: {4}|\t).+(?:\n(?:(?: {4}|\t).+|\s*))*$/gm;
+
+  let protected_ = markdown.replace(CODE_FENCE_REGEX, (m) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(m);
+    return `\x00CODEBLOCK_${idx}\x00`;
+  });
+
+  protected_ = protected_.replace(CODE_INDENT_REGEX, (m) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(m);
+    return `\x00CODEBLOCK_${idx}\x00`;
+  });
+
+  const replaced = protected_.replace(MAP_LOCATION_TOKEN_REGEX, (raw, tokenRaw: string) => {
+    const token = String(tokenRaw || "").trim();
+    if (!isLikelyMapLocationToken(token)) {
+      return raw;
+    }
+
+    const encodedToken = encodeBase64Utf8(token);
+    if (!encodedToken) {
+      return raw;
+    }
+
+    return `<span data-mori-map-token="1" data-token-b64="${escapeAttributeValue(encodedToken)}"></span>`;
+  });
+
+  return replaced.replace(/\x00CODEBLOCK_(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)] || "");
+}
+
 function applyFriendLinksPlaceholder(html: string): string {
   if (!html.includes('data-mori-friend-links="1"')) {
     return html;
@@ -1971,7 +2035,7 @@ export async function renderMarkdownToHtml(rawMarkdown: string) {
 
   const rawHtml = withMarkdownRenderScope(() => {
     // Pre-process friend links before markdown compilation
-    const preprocessed = preprocessLivePhotos(preprocessFriendLinks(source));
+    const preprocessed = preprocessMapLocations(preprocessLivePhotos(preprocessFriendLinks(source)));
 
     // @innei/markdown-to-jsx has a block-parsing edge case at document start
     // (the first list/hr block may not be recognized). We prepend a guard node
