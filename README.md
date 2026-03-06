@@ -49,6 +49,7 @@ NEXT_PUBLIC_SITE_URL="https://your-domain.com"
 NEXT_PUBLIC_IMAGE_BLURHASH="LEHV6nWB2yk8pyo0adR*.7kCMdnj"
 BLURHASH_CACHE_TTL_SECONDS="604800"
 BLURHASH_FETCH_TIMEOUT_MS="8000"
+MORI_ROUTING_ENDPOINT="https://brouter.gpx.studio"
 REDIS_URL="redis://127.0.0.1:6379"
 REDIS_KEY_PREFIX="mori"
 SOCKET_INTERNAL_TOKEN="replace-with-a-strong-random-string"
@@ -295,8 +296,13 @@ redis-cli --scan --pattern 'mori:typecho:*' | head
 正文地点 token 语法：
 
 - `{lat,lng}`，例如：`{22.3193,114.1694}`
+- `{lat,lng 描述}`，例如：`{22.3193,114.1694 香港维港}`
 - `{Open Location Code}`，例如：`{G6RH+JF}`
 - `{Open Location Code 地名}`，例如：`{8599+PP 旺角 香港}`
+- 轨迹起点：`{{Open Location Code}Train->}`（`Bike/Car/Walk/Train`）
+- 轨迹途经点：`{{Open Location Code}}`
+- 轨迹终点：`{->{Open Location Code}}`
+- 轨迹衔接：`{->{Open Location Code}Car->}`（结束上一段并开启新段）
 
 解析规则：
 
@@ -304,6 +310,7 @@ redis-cli --scan --pattern 'mori:typecho:*' | head
 - 代码块中的 token 不参与解析。
 - OLC 短码（如 `8599+PP`）会结合后续地名通过 Nominatim 获取参考坐标后还原成完整编码再解码。
 - 解析失败时保留原始文本（如 `{...}`），不会注入地图点。
+- 轨迹 token 内部位置同样支持 `{lat,lng}` / `{lat,lng 描述}` 形式。
 
 联动与交互：
 
@@ -311,8 +318,17 @@ redis-cli --scan --pattern 'mori:typecho:*' | head
 - 地图位于右侧栏 TOC 下方，地图与 TOC 左边缘对齐。
 - 地图面板宽度会从 TOC 左边缘延伸到浏览器右边缘（自适应宽度）。
 - 滚动正文时，地图会按可视区最近锚点切换激活地点并平滑移动。
+- 当正文当前阅读位置落在某段轨迹范围内时，该轨迹会高亮显示；其中 `Walk` 模式会沿轨迹平滑跟随，其他模式保持整段轨迹适配视图。
+- 多段轨迹会以不同颜色绘制，高亮轨迹会在彩色线外增加白色描边。
 - 点击地图点时会立即切换到对应地点，并触发正文平滑滚动到该段落；滚动过程中有锁定机制，避免再次被页面滚动逻辑抢占切换。
-- 选中点为高亮变色（无水波纹），并会自动放大到当前地点。
+- 选中点为高亮变色（无水波纹），并会自动放大到当前地点；离开单点后若仍处于轨迹段内，会切回轨迹视图。
+
+轨迹缓存（Redis 持久化）：
+
+- Mori 不再回写 Typecho 自定义字段。
+- 轨迹贴合缓存持久化到 Redis（持久 key），命中后可跳过贴合请求。
+- 当前 key 格式：`mori:typecho:map-route-cache:v1:schema:2:cid:<cid>:latest`（前缀 `mori` 来自 `REDIS_KEY_PREFIX`）。
+- Redis 中每篇文章只保留一份最新轨迹缓存；读取时会按 `hash` 校验，不匹配则重算。
 
 ## 专栏分类约定
 

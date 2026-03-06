@@ -18,6 +18,7 @@ import {
   stripHtml,
 } from "./typecho-normalize";
 import { prepareArticleContent } from "./article-content";
+import { getMapRouteCacheValueFromRedis } from "./map-route-cache-store";
 import {
   CommentPagination,
   NormalizedPost,
@@ -500,6 +501,12 @@ export async function getPostDetailData(
 ) {
   const rawPost = await getPostBySlug(slug, 60);
   const post = normalizePost(rawPost);
+  const rawFields = rawPost.fields ?? {};
+  const mapFieldCandidates = [rawFields.Map?.value, rawFields.map?.value];
+  const mapEnabled = mapFieldCandidates.some(
+    (value) => typeof value === "string" && value.trim() === "1",
+  );
+  const postCid = Number(rawPost.cid);
 
   const [comments, archives, categories] = await Promise.all([
     post.commentValue === 0
@@ -521,17 +528,22 @@ export async function getPostDetailData(
     getCategories(),
   ]);
 
-  const article = await prepareArticleContent(post.html);
+  const postSourceModified = Number(rawPost.modified ?? rawPost.created ?? 0);
+  const article = await prepareArticleContent(post.html, {
+    enableRouteFitting: mapEnabled,
+    enableRouteCache: mapEnabled,
+    loadRouteCacheByHash:
+      mapEnabled && Number.isFinite(postCid) && postCid > 0
+        ? (hash: string) => getMapRouteCacheValueFromRedis(postCid, hash)
+        : undefined,
+    routeCacheCid: postCid,
+    sourceModified: postSourceModified,
+  });
   const allPosts = flattenArchives(archives);
   const adjacent = createAdjacentMap(allPosts, post.cid);
   const sideNavigationPosts = buildSideNavigationPosts(allPosts, post.cid, 9);
   const columns = buildColumnsFromColumnCategory(categories, allPosts);
 
-  const rawFields = rawPost.fields ?? {};
-  const mapFieldCandidates = [rawFields.Map?.value, rawFields.map?.value];
-  const mapEnabled = mapFieldCandidates.some(
-    (value) => typeof value === "string" && value.trim() === "1",
-  );
   const bannerImage =
     typeof rawFields.banner?.value === "string" && rawFields.banner.value.trim()
       ? rawFields.banner.value.trim()
@@ -575,6 +587,7 @@ export async function getPostDetailData(
     map: {
       enabled: mapEnabled,
       points: mapEnabled ? article.mapPoints : [],
+      routes: mapEnabled ? article.mapRoutes : [],
     },
     adjacent,
     sideNavigationPosts,

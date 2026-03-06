@@ -216,6 +216,60 @@ export async function setRedisJsonPersistent(
   }
 }
 
+export async function setRedisStringIfAbsent(
+  key: string,
+  value: string,
+  ttlMs: number,
+): Promise<boolean | null> {
+  if (!key || !value || !Number.isFinite(ttlMs) || ttlMs <= 0) {
+    return false;
+  }
+
+  const client = await getRedisClient();
+  if (!client) {
+    return null;
+  }
+
+  try {
+    const result = await client.set(makePrefixedKey(key), value, {
+      NX: true,
+      PX: Math.max(1, Math.floor(ttlMs)),
+    });
+    return result === "OK";
+  } catch (error) {
+    handleRedisOperationError(error);
+    return null;
+  }
+}
+
+export async function deleteRedisKeyIfValueMatches(
+  key: string,
+  expectedValue: string,
+): Promise<boolean | null> {
+  if (!key || !expectedValue) {
+    return false;
+  }
+
+  const client = await getRedisClient();
+  if (!client) {
+    return null;
+  }
+
+  try {
+    const result = await client.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+      {
+        keys: [makePrefixedKey(key)],
+        arguments: [expectedValue],
+      },
+    );
+    return Number(result) > 0;
+  } catch (error) {
+    handleRedisOperationError(error);
+    return null;
+  }
+}
+
 export async function deleteRedisByPattern(
   pattern: string,
   options: { maxKeys?: number; batchSize?: number; scanCount?: number } = {},

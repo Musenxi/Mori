@@ -2,17 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { ArticleMapPoint } from "@/lib/typecho-types";
+import { ArticleMapPoint, ArticleMapRoute } from "@/lib/typecho-types";
 import { TravelMapPanel } from "@/components/article/travel-map-panel";
 
 interface FootprintFloatingMapProps {
   points: ArticleMapPoint[];
+  routes: ArticleMapRoute[];
 }
 
 const RIGHT_SAFE_GAP_PX = 0;
 const MIN_MAP_WIDTH_PX = 180;
 
-export function FootprintFloatingMap({ points }: FootprintFloatingMapProps) {
+export function FootprintFloatingMap({ points, routes }: FootprintFloatingMapProps) {
   const [panelWidth, setPanelWidth] = useState<number | null>(null);
 
   useEffect(() => {
@@ -86,7 +87,11 @@ export function FootprintFloatingMap({ points }: FootprintFloatingMapProps) {
 
   return (
     <div className="mt-5 shrink-0" data-mori-footprint-panel="1" style={panelStyle}>
-      <TravelMapPanel points={points} mapViewportClassName="h-[clamp(180px,34vh,420px)] aspect-auto" />
+      <TravelMapPanel
+        points={points}
+        routes={routes}
+        mapViewportClassName="h-[clamp(180px,34vh,420px)] aspect-auto"
+      />
     </div>
   );
 }

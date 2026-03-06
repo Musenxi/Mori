@@ -177,7 +177,7 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
               {desktopMapEnabled ? (
                 <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col">
                   <TableOfContents items={tocItems} className="h-full max-h-[500px] min-h-0 max-w-full flex-1" />
-                  <FootprintFloatingMap points={detail.map.points} />
+                  <FootprintFloatingMap points={detail.map.points} routes={detail.map.routes} />
                 </div>
               ) : (
                 <TableOfContents items={tocItems} />

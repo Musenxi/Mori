@@ -215,3 +215,18 @@ export interface ArticleMapPoint {
   lng: number;
   source: ArticleMapPointSource;
 }
+
+export type ArticleMapRouteMode = "bike" | "car" | "walk" | "train";
+
+export interface ArticleMapRoute {
+  id: string;
+  mode: ArticleMapRouteMode;
+  color: string;
+  startPointId: string;
+  endPointId: string;
+  startIndex: number;
+  endIndex: number;
+  pointIndices?: number[];
+  coordinates: Array<[number, number]>;
+  fitted: boolean;
+}

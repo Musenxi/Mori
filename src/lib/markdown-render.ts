@@ -66,11 +66,23 @@ const LIVE_PHOTO_TOKEN_REGEX = new RegExp(
   String.raw`)?`,
   "gim",
 );
-const MAP_LOCATION_TOKEN_REGEX = /\{([^{}\r\n]+)\}/g;
+const MAP_ROUTE_ACTIVITY_REGEX_PART = "(Bike|Car|Walk|Train)";
+const MAP_LOCATION_COMPOSITE_TOKEN_REGEX = new RegExp(
+  String.raw`\{\{([^{}\r\n]+)\}` + MAP_ROUTE_ACTIVITY_REGEX_PART + String.raw`->\}` +
+  "|" +
+  String.raw`\{->\{([^{}\r\n]+)\}` + MAP_ROUTE_ACTIVITY_REGEX_PART + String.raw`->\}` +
+  "|" +
+  String.raw`\{->\{([^{}\r\n]+)\}\}` +
+  "|" +
+  String.raw`\{\{([^{}\r\n]+)\}\}` +
+  "|" +
+  String.raw`\{([^{}\r\n]+)\}`,
+  "g",
+);
 const MAP_LOCATION_PLUS_CODE_WITH_LOCALITY_REGEX =
   /^([23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{2,8})(?:\s+.+)?$/i;
 const MAP_LOCATION_LAT_LNG_REGEX =
-  /^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))$/;
+  /^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))(?:\s+.+)?$/;
 const LANGUAGE_ALIAS: Record<string, string> = {
   csharp: "c#",
   cxx: "cpp",
@@ -102,6 +114,7 @@ type ReferenceLinkDefinition = {
   target: string;
   title: string;
 };
+type MapTokenKind = "point" | "route_start" | "route_via" | "route_end" | "route_end_start";
 
 let tabsInstanceCount = 0;
 let activeReferenceLinkDefinitions = new Map<string, ReferenceLinkDefinition>();
@@ -1604,6 +1617,14 @@ function isLikelyMapLocationToken(rawToken: string) {
   return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
+function normalizeMapRouteMode(rawMode: string | undefined) {
+  const mode = String(rawMode || "").trim().toLowerCase();
+  if (mode === "bike" || mode === "car" || mode === "walk" || mode === "train") {
+    return mode;
+  }
+  return "";
+}
+
 function preprocessMapLocations(markdown: string): string {
   // Keep fenced/indented code blocks untouched, then restore after replacement.
   const codeBlocks: string[] = [];
@@ -1622,19 +1643,73 @@ function preprocessMapLocations(markdown: string): string {
     return `\x00CODEBLOCK_${idx}\x00`;
   });
 
-  const replaced = protected_.replace(MAP_LOCATION_TOKEN_REGEX, (raw, tokenRaw: string) => {
-    const token = String(tokenRaw || "").trim();
-    if (!isLikelyMapLocationToken(token)) {
-      return raw;
-    }
+  const replaced = protected_.replace(
+    MAP_LOCATION_COMPOSITE_TOKEN_REGEX,
+    (
+      raw,
+      routeStartTokenRaw: string,
+      routeStartModeRaw: string,
+      routeEndStartTokenRaw: string,
+      routeEndStartModeRaw: string,
+      routeEndTokenRaw: string,
+      routeViaTokenRaw: string,
+      pointTokenRaw: string,
+    ) => {
+      let kind: MapTokenKind = "point";
+      let token = "";
+      let routeMode = "";
 
-    const encodedToken = encodeBase64Utf8(token);
-    if (!encodedToken) {
-      return raw;
-    }
+      if (routeStartTokenRaw) {
+        kind = "route_start";
+        token = String(routeStartTokenRaw || "").trim();
+        routeMode = normalizeMapRouteMode(routeStartModeRaw);
+      } else if (routeEndStartTokenRaw) {
+        kind = "route_end_start";
+        token = String(routeEndStartTokenRaw || "").trim();
+        routeMode = normalizeMapRouteMode(routeEndStartModeRaw);
+      } else if (routeEndTokenRaw) {
+        kind = "route_end";
+        token = String(routeEndTokenRaw || "").trim();
+      } else if (routeViaTokenRaw) {
+        kind = "route_via";
+        token = String(routeViaTokenRaw || "").trim();
+      } else {
+        kind = "point";
+        token = String(pointTokenRaw || "").trim();
+      }
 
-    return `<span data-mori-map-token="1" data-token-b64="${escapeAttributeValue(encodedToken)}"></span>`;
-  });
+      if (!token) {
+        return raw;
+      }
+
+      if ((kind === "route_start" || kind === "route_end_start") && !routeMode) {
+        return raw;
+      }
+
+      if (!isLikelyMapLocationToken(token)) {
+        return raw;
+      }
+
+      const encodedToken = encodeBase64Utf8(token);
+      const encodedRaw = encodeBase64Utf8(raw);
+      if (!encodedToken || !encodedRaw) {
+        return raw;
+      }
+
+      const attrs = [
+        "data-mori-map-token=\"1\"",
+        `data-token-b64="${escapeAttributeValue(encodedToken)}"`,
+        `data-map-kind="${escapeAttributeValue(kind)}"`,
+        `data-map-raw-b64="${escapeAttributeValue(encodedRaw)}"`,
+      ];
+
+      if (routeMode) {
+        attrs.push(`data-route-mode="${escapeAttributeValue(routeMode)}"`);
+      }
+
+      return `<span ${attrs.join(" ")}></span>`;
+    },
+  );
 
   return replaced.replace(/\x00CODEBLOCK_(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)] || "");
 }
