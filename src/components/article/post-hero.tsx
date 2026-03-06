@@ -136,7 +136,7 @@ function CoverImage({
           alt={alt}
           width={1104}
           height={460}
-          unoptimized
+          sizes="(max-width: 768px) 100vw, 1104px"
           loading="eager"
           fetchPriority="high"
           placeholder={blurDataUrl ? "blur" : "empty"}

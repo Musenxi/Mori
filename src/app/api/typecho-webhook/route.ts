@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { deleteRedisByPattern } from "@/lib/redis-client";
 import { getPostByCid } from "@/lib/typecho-client";
@@ -165,6 +165,11 @@ export async function POST(request: NextRequest) {
   }
 
   const deletedKeys = await deleteRedisByPattern("typecho:*");
+  try {
+    revalidateTag("site-context", "max");
+  } catch (error) {
+    console.warn("[typecho-webhook] revalidateTag failed for site-context:", error);
+  }
   const revalidated: string[] = [];
   paths.forEach((path) => {
     if (safeRevalidatePath(path)) {

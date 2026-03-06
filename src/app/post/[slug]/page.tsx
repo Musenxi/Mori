@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import "maplibre-gl/dist/maplibre-gl.css";
 import "../../article-content-critical.css";
 import { ColumnInfoCard } from "@/components/column-info-card";
 import { PostContentFallback } from "@/components/page-loading-fallbacks";
-import { getPostDetailData, getSiteContext } from "@/lib/site-data";
-import { getPosts } from "@/lib/typecho-client";
+import { getPostDetailData } from "@/lib/site-data";
+import { getPosts, isTypechoConfigured } from "@/lib/typecho-client";
 import { ArticleContentDeferredStyles } from "@/components/article/article-content-deferred-styles";
 import { PostBody } from "@/components/article/post-body";
 import { PostHero } from "@/components/article/post-hero";
@@ -20,7 +21,7 @@ import { DesktopSideNavigationDrawer } from "@/components/article/desktop-side-n
 import { FootprintFloatingMap } from "@/components/article/footprint-floating-map";
 import { getBlurhashDataUrlForSource } from "@/lib/blurhash-placeholder";
 
-export const revalidate = 0;
+export const revalidate = 60;
 
 interface PostPageProps {
   params: Promise<{
@@ -199,11 +200,10 @@ async function PostPageContent({ slug, configured }: { slug: string; configured:
 
 export default async function PostPage({ params }: PostPageProps) {
   const { slug } = await params;
-  const context = await getSiteContext();
 
   return (
     <Suspense fallback={<PostContentFallback />}>
-      <PostPageContent slug={slug} configured={context.configured} />
+      <PostPageContent slug={slug} configured={isTypechoConfigured()} />
     </Suspense>
   );
 }

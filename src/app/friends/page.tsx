@@ -3,29 +3,12 @@ import { Suspense } from "react";
 import "../article-content-critical.css";
 import { StaticPageContentFallback } from "@/components/page-loading-fallbacks";
 import { StaticPageContent } from "@/components/static-page-view";
-import { getSiteContext, getStaticPageDetailBySlug } from "@/lib/site-data";
+import { getStaticPageDetailBySlug } from "@/lib/site-data";
 
-export const revalidate = 0;
+export const revalidate = 60;
 
-interface FriendsPageProps {
-  searchParams: Promise<{
-    cpage?: string;
-  }>;
-}
-
-function parseCommentPage(value?: string) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-}
-
-async function FriendsPageContent({
-  configured,
-  commentPage,
-}: {
-  configured: boolean;
-  commentPage: number;
-}) {
-  const detail = configured ? await getStaticPageDetailBySlug("friends", commentPage) : null;
+async function FriendsPageContent() {
+  const detail = await getStaticPageDetailBySlug("friends", 1);
 
   return (
     <StaticPageContent
@@ -37,13 +20,10 @@ async function FriendsPageContent({
   );
 }
 
-export default async function FriendsPage({ searchParams }: FriendsPageProps) {
-  const commentPage = parseCommentPage((await searchParams).cpage);
-  const context = await getSiteContext();
-
+export default async function FriendsPage() {
   return (
     <Suspense fallback={<StaticPageContentFallback />}>
-      <FriendsPageContent configured={context.configured} commentPage={commentPage} />
+      <FriendsPageContent />
     </Suspense>
   );
 }

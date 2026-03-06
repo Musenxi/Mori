@@ -4,37 +4,36 @@ import { Suspense } from "react";
 import "../../article-content-critical.css";
 import { StaticPageContentFallback } from "@/components/page-loading-fallbacks";
 import { StaticPageContent } from "@/components/static-page-view";
-import { getSiteContext, getStaticPageDetailBySlug } from "@/lib/site-data";
+import { getStaticPageDetailBySlug } from "@/lib/site-data";
+import { getPages } from "@/lib/typecho-client";
 
-export const revalidate = 0;
+export const revalidate = 60;
+const RESERVED_PAGE_SLUGS = new Set(["about", "comment", "friends", "category", "column", "message"]);
 
 interface GenericPageProps {
   params: Promise<{
     slug: string;
   }>;
-  searchParams: Promise<{
-    cpage?: string;
-  }>;
 }
 
-function parseCommentPage(value?: string) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+export async function generateStaticParams() {
+  try {
+    const pages = await getPages();
+    return pages
+      .map((page) => String(page.slug || "").trim())
+      .filter((slug) => slug.length > 0 && !RESERVED_PAGE_SLUGS.has(slug.toLowerCase()))
+      .map((slug) => ({ slug }));
+  } catch {
+    return [] as Array<{ slug: string }>;
+  }
 }
 
 async function GenericPageContent({
   slug,
-  commentPage,
-  configured,
 }: {
   slug: string;
-  commentPage: number;
-  configured: boolean;
 }) {
-  if (!configured) {
-    return <StaticPageContent fallbackTitle={slug} page={null} />;
-  }
-  const detail = await getStaticPageDetailBySlug(slug, commentPage);
+  const detail = await getStaticPageDetailBySlug(slug, 1);
   if (!detail) {
     notFound();
   }
@@ -49,18 +48,12 @@ async function GenericPageContent({
   );
 }
 
-export default async function GenericPage({ params, searchParams }: GenericPageProps) {
+export default async function GenericPage({ params }: GenericPageProps) {
   const { slug } = await params;
-  const commentPage = parseCommentPage((await searchParams).cpage);
-  const context = await getSiteContext();
 
   return (
     <Suspense fallback={<StaticPageContentFallback />}>
-      <GenericPageContent
-        slug={slug}
-        commentPage={commentPage}
-        configured={context.configured}
-      />
+      <GenericPageContent slug={slug} />
     </Suspense>
   );
 }

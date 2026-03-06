@@ -1,5 +1,6 @@
 import { ArticleContentDeferredStyles } from "@/components/article/article-content-deferred-styles";
 import { CommentSection } from "@/components/article/comment-section";
+import { MarkdownRuntimeLazy } from "@/components/markdown-runtime-lazy";
 import { CommentPagination, NormalizedComment, NormalizedPost } from "@/lib/typecho-types";
 
 interface StaticPageContentProps {
@@ -27,12 +28,15 @@ export function StaticPageContent({
           <div className="mori-stagger-item mt-8 h-px w-full bg-border" style={{ animationDelay: "60ms" }} />
 
           {page?.html ? (
-            <div
-              className="mori-stagger-item prose-article mt-8"
-              style={{ animationDelay: "90ms" }}
-              suppressHydrationWarning
-              dangerouslySetInnerHTML={{ __html: page.html }}
-            />
+            <>
+              <div
+                className="mori-stagger-item prose-article mt-8"
+                style={{ animationDelay: "90ms" }}
+                suppressHydrationWarning
+                dangerouslySetInnerHTML={{ __html: page.html }}
+              />
+              <MarkdownRuntimeLazy />
+            </>
           ) : (
             <p className="mori-stagger-item mt-8 font-sans text-sm leading-8 text-secondary" style={{ animationDelay: "90ms" }}>
               该页面暂无内容。

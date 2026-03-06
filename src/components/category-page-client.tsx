@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 
 import { CategoryFilter } from "@/components/category-filter";
 import { YearPostGroups } from "@/components/year-post-groups";
@@ -53,16 +54,22 @@ export function CategoryPageClient({
   initialActiveSlug,
   posts,
 }: CategoryPageClientProps) {
-  const [groups, setGroups] = useState(initialGroups);
-  const [activeSlug, setActiveSlug] = useState<string | null>(initialActiveSlug);
+  const searchParams = useSearchParams();
   const [animationToken, setAnimationToken] = useState(0);
+  const activeSlug = searchParams.get("slug")?.trim() || initialActiveSlug;
+  const groups = useMemo(() => {
+    if (!activeSlug || activeSlug === initialActiveSlug) {
+      return initialGroups;
+    }
+
+    return groupPostsByYear(filterPostsBySlug(posts, activeSlug));
+  }, [activeSlug, initialActiveSlug, initialGroups, posts]);
+
   function handleSelect(nextSlug: string | null) {
     if (nextSlug === activeSlug) {
       return;
     }
 
-    setActiveSlug(nextSlug);
-    setGroups(groupPostsByYear(filterPostsBySlug(posts, nextSlug)));
     setAnimationToken((value) => value + 1);
     const nextUrl = nextSlug ? `/category?slug=${encodeURIComponent(nextSlug)}` : "/category";
     window.history.replaceState(null, "", nextUrl);

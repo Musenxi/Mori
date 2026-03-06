@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
 
-import { MarkdownRuntimeLazy } from "@/components/markdown-runtime-lazy";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { NoConfigAlert } from "@/components/no-config-alert";
@@ -18,7 +17,6 @@ export function Shell({ context, navItems, children }: ShellProps) {
       <SiteHeader blogTitle={context.blogTitle} navItems={navItems} />
       {!context.configured ? <NoConfigAlert /> : null}
       <div className="mori-view-transition-region flex-1">{children}</div>
-      <MarkdownRuntimeLazy />
       <SiteFooter blogTitle={context.blogTitle} />
     </div>
   );

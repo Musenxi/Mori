@@ -1,4 +1,5 @@
 import { NormalizedPost } from "@/lib/typecho-types";
+import { MarkdownRuntimeLazy } from "@/components/markdown-runtime-lazy";
 
 interface PostBodyProps {
   post: NormalizedPost & { html: string };
@@ -12,6 +13,7 @@ export function PostBody({ post }: PostBodyProps) {
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: post.html }}
       />
+      {post.html ? <MarkdownRuntimeLazy /> : null}
 
       {post.tags.length > 0 ? (
         <div className="flex w-full flex-wrap gap-3 pt-2">

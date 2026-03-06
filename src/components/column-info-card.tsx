@@ -30,8 +30,8 @@ export function ColumnInfoCard({ column, compact = false, hideAction = false }: 
             alt=""
             width={36}
             height={36}
+            sizes={compact ? "28px" : "36px"}
             className={cn("h-9 w-9 object-contain", compact && "h-7 w-7")}
-            unoptimized
           />
         ) : null}
         {resolvedIcon?.type === "text" ? (

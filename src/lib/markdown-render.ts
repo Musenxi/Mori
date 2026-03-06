@@ -153,6 +153,8 @@ function escapeAttributeValue(value: string) {
 }
 
 const MARKDOWN_IMAGE_PLACEHOLDER_VERSION = "2";
+const TRANSPARENT_IMAGE_PLACEHOLDER_SRC =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
 function buildDeferredMarkdownImagePlaceholderSrc(target: string) {
   return `/api/blurhash/image?src=${encodeURIComponent(target)}&v=${MARKDOWN_IMAGE_PLACEHOLDER_VERSION}`;
@@ -1739,6 +1741,7 @@ function applyFriendLinksPlaceholder(html: string): string {
     const cards = items
       .map((link) => {
         const safeHref = sanitizeUrl(link.url) || "";
+        const safeImage = sanitizeUrl(String(link.image || "").trim()) || "";
         if (!safeHref) {
           return "";
         }
@@ -1747,8 +1750,20 @@ function applyFriendLinksPlaceholder(html: string): string {
           ? `<span class="mori-friend-card-desc">${escapeHtmlText(decodeHtmlEntities(link.description))}</span>`
           : `<span class="mori-friend-card-desc"></span>`;
 
+        const avatarAttrs = [
+          `class="mori-friend-card-avatar"`,
+          `src="${escapeAttributeValue(TRANSPARENT_IMAGE_PLACEHOLDER_SRC)}"`,
+          safeImage ? `data-origin-src="${escapeAttributeValue(safeImage)}"` : "",
+          `alt=""`,
+          `loading="lazy"`,
+          `decoding="async"`,
+          `fetchpriority="low"`,
+        ]
+          .filter(Boolean)
+          .join(" ");
+
         return `<a class="mori-friend-card" href="${escapeAttributeValue(safeHref)}" target="_blank" rel="noopener noreferrer">
-<img class="mori-friend-card-avatar" src="${escapeAttributeValue(link.image)}" alt="" loading="lazy">
+<img ${avatarAttrs}>
 <span class="mori-friend-card-name">${escapeHtmlText(decodeHtmlEntities(link.name))}</span>
 ${descHtml}
 </a>`;

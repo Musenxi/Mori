@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 import {
   getArchives,
   getCategories,
@@ -45,6 +47,7 @@ export interface ColumnInfo {
 
 const DEFAULT_COMMENT_PAGE_SIZE = 10;
 const COMMENT_CACHE_SECONDS = 5;
+const SITE_CONTEXT_REVALIDATE_SECONDS = 300;
 
 function mapCategoryToColumn(category: TypechoCategory): ColumnInfo {
   return {
@@ -211,7 +214,7 @@ async function getAllPostsForListing(revalidate?: number | false) {
     const archives = await getArchives({
       showDigest: "excerpt",
       limit: 92,
-      showContent: true,
+      showContent: false,
       order: "desc",
       revalidate,
     });
@@ -223,13 +226,59 @@ async function getAllPostsForListing(revalidate?: number | false) {
       pageSize: 120,
       showDigest: "excerpt",
       limit: 92,
-      showContent: true,
+      showContent: false,
       revalidate,
     });
 
     return normalizePosts(fallback.dataSet);
   }
 }
+
+const getCachedSiteContext = unstable_cache(
+  async (): Promise<SiteContext> => {
+    if (!isTypechoConfigured()) {
+      return {
+        blogTitle: "夜庭記",
+        blogDescription: "Typecho Restful API 未配置",
+        keywords: "",
+        configured: false,
+        pages: [],
+      };
+    }
+
+    try {
+      const [settings, pages] = await Promise.all([getSettings(), getPages()]);
+
+      return {
+        blogTitle: stripAndSlice(settings.title ?? "", "夜庭記"),
+        blogDescription: stripAndSlice(settings.description ?? "", "静观其变，慢写人间。"),
+        keywords: settings.keywords ?? "",
+        configured: true,
+        pages: pages
+          .filter((page) => page.fields?.show?.value !== "0")
+          .map((page) => ({
+            cid: page.cid,
+            slug: page.slug,
+            title: page.title,
+            redirect: page.fields?.redirect?.value || undefined,
+          })),
+      };
+    } catch {
+      return {
+        blogTitle: "夜庭記",
+        blogDescription: "Typecho Restful API 请求失败",
+        keywords: "",
+        configured: false,
+        pages: [],
+      };
+    }
+  },
+  ["site-context"],
+  {
+    revalidate: SITE_CONTEXT_REVALIDATE_SECONDS,
+    tags: ["site-context"],
+  },
+);
 
 export async function getSiteContext(): Promise<SiteContext> {
   if (!isTypechoConfigured()) {
@@ -242,32 +291,7 @@ export async function getSiteContext(): Promise<SiteContext> {
     };
   }
 
-  try {
-    const [settings, pages] = await Promise.all([getSettings(), getPages()]);
-
-    return {
-      blogTitle: stripAndSlice(settings.title ?? "", "夜庭記"),
-      blogDescription: stripAndSlice(settings.description ?? "", "静观其变，慢写人间。"),
-      keywords: settings.keywords ?? "",
-      configured: true,
-      pages: pages
-        .filter((page) => page.fields?.show?.value !== "0")
-        .map((page) => ({
-          cid: page.cid,
-          slug: page.slug,
-          title: page.title,
-          redirect: page.fields?.redirect?.value || undefined,
-        })),
-    };
-  } catch {
-    return {
-      blogTitle: "夜庭記",
-      blogDescription: "Typecho Restful API 请求失败",
-      keywords: "",
-      configured: false,
-      pages: [],
-    };
-  }
+  return getCachedSiteContext();
 }
 
 export async function getHomeData(revalidate?: number | false) {

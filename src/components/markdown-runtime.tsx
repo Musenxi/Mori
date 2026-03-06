@@ -60,7 +60,7 @@ const IMAGE_REVEAL_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const IMAGE_REVEAL_BLUR_PX = 10;
 const IMAGE_REVEAL_START_OPACITY = 0.6;
 const DEFERRED_IMAGE_FADE_START_OPACITY = "0.55";
-const DEFERRED_IMAGE_PRELOAD_ROOT_MARGIN = "100% 100% 100% 100%";
+const DEFERRED_IMAGE_PRELOAD_ROOT_MARGIN = "320px 0px 320px 0px";
 const ZOOMABLE_MARKDOWN_IMAGE_SELECTOR = 'img[data-mori-markdown-image="1"]';
 const LIVE_PHOTO_SELECTOR = '[data-mori-live-photo="1"]';
 const LIVE_PHOTO_SCRIPT_SRC = "https://cdn.apple-livephotoskit.com/lpk/1/livephotoskit.js";

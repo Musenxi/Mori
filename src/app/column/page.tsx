@@ -3,7 +3,8 @@ import { Suspense } from "react";
 
 import { ColumnCard } from "@/components/column-card";
 import { ColumnListContentFallback } from "@/components/page-loading-fallbacks";
-import { getColumnsData, getSiteContext } from "@/lib/site-data";
+import { getColumnsData } from "@/lib/site-data";
+import { isTypechoConfigured } from "@/lib/typecho-client";
 
 export const revalidate = 86400;
 
@@ -50,12 +51,10 @@ async function ColumnListContent({ configured }: { configured: boolean }) {
 }
 
 export default async function ColumnPage() {
-  const context = await getSiteContext();
-
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 pb-[20px] md:px-0">
       <Suspense fallback={<ColumnListContentFallback />}>
-        <ColumnListContent configured={context.configured} />
+        <ColumnListContent configured={isTypechoConfigured()} />
       </Suspense>
     </main>
   );

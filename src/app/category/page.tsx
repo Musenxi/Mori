@@ -2,25 +2,18 @@ import { Suspense } from "react";
 
 import { CategoryPageClient } from "@/components/category-page-client";
 import { CategoryContentFallback } from "@/components/page-loading-fallbacks";
-import { getCategoryPageData, getSiteContext } from "@/lib/site-data";
+import { getCategoryPageData } from "@/lib/site-data";
+import { isTypechoConfigured } from "@/lib/typecho-client";
 
 export const revalidate = 86400;
 
-interface CategoryPageProps {
-  searchParams: Promise<{
-    slug?: string;
-  }>;
-}
-
 async function CategoryPageContent({
-  activeSlug,
   configured,
 }: {
-  activeSlug: string | null;
   configured: boolean;
 }) {
   const data = configured
-    ? await getCategoryPageData(activeSlug).catch(() => ({
+    ? await getCategoryPageData(null).catch(() => ({
       categories: [],
       posts: [],
       groups: [],
@@ -32,22 +25,18 @@ async function CategoryPageContent({
       <CategoryPageClient
         initialCategories={data.categories}
         initialGroups={data.groups}
-        initialActiveSlug={activeSlug}
+        initialActiveSlug={null}
         posts={data.posts}
       />
     </section>
   );
 }
 
-export default async function CategoryPage({ searchParams }: CategoryPageProps) {
-  const params = await searchParams;
-  const activeSlug = params.slug?.trim() || null;
-
-  const context = await getSiteContext();
+export default async function CategoryPage() {
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 pb-[20px] md:px-0">
       <Suspense fallback={<CategoryContentFallback />}>
-        <CategoryPageContent activeSlug={activeSlug} configured={context.configured} />
+        <CategoryPageContent configured={isTypechoConfigured()} />
       </Suspense>
     </main>
   );
