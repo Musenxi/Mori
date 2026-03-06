@@ -750,6 +750,9 @@ async function injectMapAnchors(html: string, options: InjectMapAnchorsOptions =
     }
 
     if (!item.resolved) {
+      if (activeRouteBuilder && item.kind !== "point") {
+        activeRouteBuilder = null;
+      }
       replacements.push({
         start: item.start,
         end: item.end,
@@ -856,9 +859,12 @@ async function injectMapAnchors(html: string, options: InjectMapAnchorsOptions =
 
   let routeCacheLeaseToken = "";
   if (enableRouteCache && trajectoryHash && !canUseRouteCache && routeCacheCid > 0) {
-    routeCacheLeaseToken = await acquireMapRouteCacheBuildLease(routeCacheCid, trajectoryHash);
+    let leaseResult = await acquireMapRouteCacheBuildLease(routeCacheCid, trajectoryHash);
+    if (leaseResult.status === "acquired") {
+      routeCacheLeaseToken = leaseResult.token;
+    }
 
-    if (!routeCacheLeaseToken) {
+    if (leaseResult.status === "contended") {
       routeCacheRaw = String(await waitForMapRouteCacheValueFromRedis({
         cid: routeCacheCid,
         sourceHash: trajectoryHash,
@@ -870,7 +876,10 @@ async function injectMapAnchors(html: string, options: InjectMapAnchorsOptions =
         routeCachePayload?.hash === trajectoryHash;
 
       if (!canUseRouteCache) {
-        routeCacheLeaseToken = await acquireMapRouteCacheBuildLease(routeCacheCid, trajectoryHash);
+        leaseResult = await acquireMapRouteCacheBuildLease(routeCacheCid, trajectoryHash);
+        if (leaseResult.status === "acquired") {
+          routeCacheLeaseToken = leaseResult.token;
+        }
       }
     }
 

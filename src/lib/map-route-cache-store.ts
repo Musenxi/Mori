@@ -25,6 +25,11 @@ type MapRouteCacheRedisEntry = {
   updatedAt: number;
 };
 
+export type MapRouteCacheBuildLeaseResult =
+  | { status: "acquired"; token: string }
+  | { status: "contended"; token: "" }
+  | { status: "unavailable"; token: "" };
+
 function normalizeCid(rawCid: unknown) {
   const cid = Number(rawCid);
   if (!Number.isFinite(cid) || cid <= 0) {
@@ -154,11 +159,17 @@ export async function setMapRouteCacheValueToRedis(input: {
   });
 }
 
-export async function acquireMapRouteCacheBuildLease(cid: number, sourceHash: string): Promise<string> {
+export async function acquireMapRouteCacheBuildLease(
+  cid: number,
+  sourceHash: string,
+): Promise<MapRouteCacheBuildLeaseResult> {
   const normalizedCid = normalizeCid(cid);
   const normalizedHash = normalizeHash(sourceHash);
   if (!normalizedCid || !normalizedHash) {
-    return "";
+    return {
+      status: "unavailable",
+      token: "",
+    };
   }
 
   const token = randomUUID();
@@ -168,7 +179,24 @@ export async function acquireMapRouteCacheBuildLease(cid: number, sourceHash: st
     MAP_ROUTE_CACHE_BUILD_LOCK_TTL_MS,
   );
 
-  return acquired ? token : "";
+  if (acquired === true) {
+    return {
+      status: "acquired",
+      token,
+    };
+  }
+
+  if (acquired === false) {
+    return {
+      status: "contended",
+      token: "",
+    };
+  }
+
+  return {
+    status: "unavailable",
+    token: "",
+  };
 }
 
 export async function releaseMapRouteCacheBuildLease(cid: number, sourceHash: string, token: string) {
