@@ -138,11 +138,11 @@ export async function POST(request: NextRequest) {
   const payload = body.payload && typeof body.payload === "object" ? body.payload : null;
   const slug = group === "meta" || group === "settings" ? "" : await resolveSlug(payload);
   const contentType = normalizeText(payload?.type);
+  const shouldRevalidateRootLayout = group === "settings" || contentType === "page";
 
   const paths = new Set<string>();
 
   if (group === "settings") {
-    safeRevalidatePath("/", "layout");
     collectPaths(paths, ["/", "/category", "/column", "/feed", "/about", "/friends", "/comment"]);
   } else if (group === "meta") {
     collectPaths(paths, ["/", "/category", "/column", "/feed"]);
@@ -171,6 +171,9 @@ export async function POST(request: NextRequest) {
     console.warn("[typecho-webhook] revalidateTag failed for site-context:", error);
   }
   const revalidated: string[] = [];
+  if (shouldRevalidateRootLayout && safeRevalidatePath("/", "layout")) {
+    revalidated.push("/:layout");
+  }
   paths.forEach((path) => {
     if (safeRevalidatePath(path)) {
       revalidated.push(path);
