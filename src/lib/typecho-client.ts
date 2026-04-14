@@ -282,8 +282,8 @@ async function requestTypechoWithSetCookie<T>(
   };
 }
 
-export async function getSettings(): Promise<TypechoSettings> {
-  return requestTypecho<TypechoSettings>("settings");
+export async function getSettings(revalidate: number | false = DEFAULT_REVALIDATE): Promise<TypechoSettings> {
+  return requestTypecho<TypechoSettings>("settings", { revalidate });
 }
 
 export async function getUserByUid(

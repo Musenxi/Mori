@@ -8,6 +8,8 @@ import { getSettings } from "@/lib/typecho-client";
 import { NormalizedPost } from "@/lib/typecho-types";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const FEED_LIMIT = 50;
 
@@ -353,14 +355,14 @@ function toXmlResponse(xml: string, status = 200) {
     status,
     headers: {
       "Content-Type": "application/rss+xml; charset=utf-8",
-      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
     },
   });
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const [settings, homeData] = await Promise.all([getSettings(), getHomeData()]);
+    const [settings, homeData] = await Promise.all([getSettings(false), getHomeData(false)]);
     const origin = resolveOrigin(request);
     const title = normalizeText(settings.title, "夜庭記");
     const description = normalizeText(settings.description, "静观其变，慢写人间。");
