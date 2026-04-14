@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 
 import { prepareArticleContent } from "@/lib/article-content";
-import { getHomeData } from "@/lib/site-data";
-import { stripHtml } from "@/lib/typecho-normalize";
-import { getSettings } from "@/lib/typecho-client";
+import { flattenArchives, stripHtml } from "@/lib/typecho-normalize";
+import { getArchives, getSettings } from "@/lib/typecho-client";
 import { NormalizedPost } from "@/lib/typecho-types";
 
 export const runtime = "nodejs";
@@ -289,6 +288,20 @@ async function buildRenderedContent(post: NormalizedPost) {
   }
 }
 
+async function getFeedPosts() {
+  const archives = await getArchives({
+    showContent: true,
+    showDigest: "excerpt",
+    limit: 220,
+    order: "desc",
+    revalidate: false,
+  });
+
+  return flattenArchives(archives)
+    .filter((post) => new Date(post.created * 1000).getFullYear() >= 2026)
+    .slice(0, FEED_LIMIT);
+}
+
 async function buildItemXml(post: NormalizedPost, origin: string) {
   const link = resolvePostLink(post, origin);
   const guid = buildGuidUuid(post);
@@ -362,13 +375,10 @@ function toXmlResponse(xml: string, status = 200) {
 
 export async function GET(request: NextRequest) {
   try {
-    const [settings, homeData] = await Promise.all([getSettings(false), getHomeData(false)]);
+    const [settings, posts] = await Promise.all([getSettings(false), getFeedPosts()]);
     const origin = resolveOrigin(request);
     const title = normalizeText(settings.title, "夜庭記");
-    const description = normalizeText(settings.description, "静观其变，慢写人间。");
-    const posts = homeData.allPosts
-      .filter((post) => new Date(post.created * 1000).getFullYear() >= 2026)
-      .slice(0, FEED_LIMIT);
+    const description = normalizeText(settings.description, "clinilc");
 
     const xml = await buildFeedXml(posts, {
       title,
